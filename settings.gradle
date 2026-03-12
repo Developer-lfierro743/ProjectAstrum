@@ -1,0 +1,10 @@
+rootProject.name = 'ProjectAstrum'
+
+include 'astrum-api'
+include 'astrum-common'
+include 'astrum-core'
+include 'astrum-engine'
+include 'astrum-world'
+include 'astrum-client'
+include 'astrum-server'
+include 'astrum-web'

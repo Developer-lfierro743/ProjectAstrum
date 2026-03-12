@@ -1,0 +1,19 @@
+[versions]
+java = "21"
+gradle = "9.3.1"
+lwjgl = "3.3.4"
+fastNoiseLite = "1.1.0"
+junit = "5.11.0"
+teavm = "0.13.0"
+
+[libraries]
+lwjgl = { group = "org.lwjgl", name = "lwjgl", version.ref = "lwjgl" }
+lwjgl-vulkan = { group = "org.lwjgl", name = "lwjgl-vulkan", version.ref = "lwjgl" }
+lwjgl-glfw = { group = "org.lwjgl", name = "lwjgl-glfw", version.ref = "lwjgl" }
+lwjgl-stb = { group = "org.lwjgl", name = "lwjgl-stb", version.ref = "lwjgl" }
+fastnoise-lite = { group = "io.github.auburn", name = "fastnoiselite", version.ref = "fastNoiseLite" }
+junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter", version.ref = "junit" }
+
+[plugins]
+java-library = { id = "java-library", version = "9.3.1" }
+teavm = { id = "org.teavm", version.ref = "teavm" }

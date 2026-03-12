@@ -1,0 +1,5 @@
+dependencies {
+    implementation project(':astrum-core')
+    implementation project(':astrum-engine')
+    implementation project(':astrum-world')
+}

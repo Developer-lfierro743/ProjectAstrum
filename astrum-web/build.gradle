@@ -1,0 +1,11 @@
+plugins {
+    alias(libs.plugins.teavm)
+}
+
+dependencies {
+    implementation project(':astrum-core')
+}
+
+teavm {
+    // TeavM configuration for WASM-GC
+}

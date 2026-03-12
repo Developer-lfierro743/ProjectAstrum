@@ -1,0 +1,12 @@
+build/
+.gradle/
+*.class
+*.log
+*.zip
+*.tar.gz
+.project
+.settings/
+.classpath
+bin/
+out/
+.DS_Store

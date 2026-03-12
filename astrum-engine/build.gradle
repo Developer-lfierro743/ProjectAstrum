@@ -1,0 +1,8 @@
+dependencies {
+    implementation project(':astrum-common')
+    
+    implementation libs.lwjgl
+    implementation libs.lwjgl.glfw
+    implementation libs.lwjgl.vulkan
+    implementation libs.lwjgl.stb
+}
