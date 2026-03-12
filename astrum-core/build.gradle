@@ -1,4 +1,3 @@
 dependencies {
     implementation project(':astrum-common')
-    implementation libs.fastnoise.lite
 }

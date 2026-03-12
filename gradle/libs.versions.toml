@@ -15,5 +15,5 @@ fastnoise-lite = { group = "io.github.auburn", name = "fastnoiselite", version.r
 junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter", version.ref = "junit" }
 
 [plugins]
-java-library = { id = "java-library", version = "9.3.1" }
+java-library = { id = "java-library" }
 teavm = { id = "org.teavm", version.ref = "teavm" }
