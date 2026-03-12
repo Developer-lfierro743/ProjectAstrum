@@ -1,3 +1,4 @@
 dependencies {
-    // API interfaces for modding
+    implementation project(':astrum-common')
+    // Modding API will depend on core ECS but through abstraction
 }

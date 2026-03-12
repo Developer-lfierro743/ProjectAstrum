@@ -1,8 +1,14 @@
 dependencies {
     implementation project(':astrum-common')
+    implementation project(':astrum-core')
     
     implementation libs.lwjgl
     implementation libs.lwjgl.glfw
     implementation libs.lwjgl.vulkan
     implementation libs.lwjgl.stb
+    
+    // Natives for runtime support (Desktop)
+    runtimeOnly "org.lwjgl:lwjgl::natives-linux-arm64"
+    runtimeOnly "org.lwjgl:lwjgl-glfw::natives-linux-arm64"
+    runtimeOnly "org.lwjgl:lwjgl-stb::natives-linux-arm64"
 }
