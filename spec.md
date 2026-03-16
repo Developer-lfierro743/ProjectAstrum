@@ -1,8 +1,8 @@
 code must be changed and must be added:
 Phase 1: Foundation (The Skeleton)
    * astrum-common
-       * [ ] Add Vector3i utility methods for chunk-local coordinate math.
-       * [ ] Implement NativeMemory unit tests to verify off-heap safety.
+       * [x] Add Vector3i utility methods for chunk-local coordinate math.
+       * [x] Implement NativeMemory unit tests to verify off-heap safety.
    * astrum-api
        * [ ] Expand Registry to support Namespaced IDs (e.g., astrum:ferrous).
        * [ ] Create IWorld and IEntity interfaces for modder access.
