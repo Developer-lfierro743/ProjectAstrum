@@ -21,8 +21,9 @@ Phase 1: Foundation (The Skeleton)
        * [x] Abstraction: Implement cross-platform RenderBackend interface with API detection.
        * [x] Buffer: Add RenderBuffer abstraction for unified Vulkan/WebGPU buffers.
        * [x] Optimization: Implement Greedy Meshing to combine identical voxel faces.
-       * [ ] Vulkan: Setup Vertex Buffers and Index Buffers using NativeMemory.
-       * [ ] Vulkan: Implement vkCmdDrawIndexed to see the first triangle.
+       * [x] Vertex Buffers: Implement VertexBuffer for GPU mesh upload.
+       * [x] First Cube: Generate colored cube mesh (40 vertices, vibrant colors).
+       * [ ] Vulkan: Implement vkCmdDrawIndexed to see the first triangle on screen.
        * [ ] Scaling: Implement the off-screen scaling buffer for Adreno 710 optimization.
        * [ ] Bindless: Implement descriptor indexing for "The Formula's" 10k+ texture requirement.
    * astrum-android
