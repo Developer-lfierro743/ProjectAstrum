@@ -23,7 +23,7 @@ Phase 1: Foundation (The Skeleton)
        * [x] Optimization: Implement Greedy Meshing to combine identical voxel faces.
        * [x] Vertex Buffers: Implement VertexBuffer for GPU mesh upload.
        * [x] First Cube: Generate colored cube mesh (40 vertices, vibrant colors).
-       * [ ] Vulkan: Implement vkCmdDrawIndexed to see the first triangle on screen.
+       * [x] First Triangle: Implement vkCmdDrawIndexed pipeline to render cube on screen.
        * [ ] Scaling: Implement the off-screen scaling buffer for Adreno 710 optimization.
        * [ ] Bindless: Implement descriptor indexing for "The Formula's" 10k+ texture requirement.
    * astrum-android
