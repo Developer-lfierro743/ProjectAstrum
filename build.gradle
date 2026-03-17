@@ -25,7 +25,6 @@ subprojects {
     tasks.withType(JavaCompile).configureEach {
         options.encoding = 'UTF-8'
         options.release.set(21)
-        // Enable preview features for Panama API and Virtual Threads if needed
         options.compilerArgs += ['--enable-preview']
     }
 
