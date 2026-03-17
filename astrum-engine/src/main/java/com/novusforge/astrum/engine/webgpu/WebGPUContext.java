@@ -63,4 +63,39 @@ public class WebGPUContext implements RenderBackend {
     public WindowProvider getWindowProvider() {
         return windowProvider;
     }
+    
+    @Override
+    public RenderAPI getAPI() {
+        return RenderAPI.WEBGPU;
+    }
+    
+    @Override
+    public FeatureLevel getFeatureLevel() {
+        return FeatureLevel.LOW;
+    }
+    
+    @Override
+    public boolean supportsGeometryShaders() {
+        return false;
+    }
+    
+    @Override
+    public boolean supportsComputeShaders() {
+        return true;
+    }
+    
+    @Override
+    public boolean supportsTessellation() {
+        return false;
+    }
+    
+    @Override
+    public long getAllocatedVRAM() {
+        return 0;
+    }
+    
+    @Override
+    public long getRecommendedChunkMeshSize() {
+        return 8;
+    }
 }

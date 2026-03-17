@@ -756,4 +756,39 @@ public class VulkanContext implements RenderBackend {
         glfwDestroyWindow(window);
         glfwTerminate();
     }
+    
+    @Override
+    public RenderAPI getAPI() {
+        return RenderAPI.VULKAN;
+    }
+    
+    @Override
+    public FeatureLevel getFeatureLevel() {
+        return FeatureLevel.HIGH;
+    }
+    
+    @Override
+    public boolean supportsGeometryShaders() {
+        return true;
+    }
+    
+    @Override
+    public boolean supportsComputeShaders() {
+        return true;
+    }
+    
+    @Override
+    public boolean supportsTessellation() {
+        return true;
+    }
+    
+    @Override
+    public long getAllocatedVRAM() {
+        return 0;
+    }
+    
+    @Override
+    public long getRecommendedChunkMeshSize() {
+        return 16;
+    }
 }
