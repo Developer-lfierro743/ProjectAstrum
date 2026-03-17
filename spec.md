@@ -18,11 +18,16 @@ Phase 1: Foundation (The Skeleton)
  Phase 2: High-Performance Rendering (The Vision)
    * astrum-engine
        * [x] Meshing: Finish addFace logic in ChunkMesher (currently omitted).
+       * [x] Abstraction: Implement cross-platform RenderBackend interface with API detection.
+       * [x] Buffer: Add RenderBuffer abstraction for unified Vulkan/WebGPU buffers.
        * [ ] Optimization: Implement Greedy Meshing to combine identical voxel faces.
        * [ ] Vulkan: Setup Vertex Buffers and Index Buffers using NativeMemory.
        * [ ] Vulkan: Implement vkCmdDrawIndexed to see the first triangle.
        * [ ] Scaling: Implement the off-screen scaling buffer for Adreno 710 optimization.
        * [ ] Bindless: Implement descriptor indexing for "The Formula's" 10k+ texture requirement.
+   * astrum-android
+       * [x] Android SDK setup at /opt/android-sdk
+       * [x] Android module scaffold created (needs Gradle 8.x setup)
 
 
  Phase 3: World & Generation (The Scale)
