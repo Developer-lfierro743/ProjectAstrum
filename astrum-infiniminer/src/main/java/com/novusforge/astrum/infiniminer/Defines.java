@@ -1,75 +1,104 @@
 package com.novusforge.astrum.infiniminer;
 
+import org.joml.Vector4f;
+
 /**
  * Infiniminer Defines - Core constants and definitions.
  * Ported from C# XNA to Java 21 LWJGL3.
- * Original: Infiniminer/Configuration/Blocks/BlockTypes.cs
  */
 public class Defines {
     
     // Version
-    public static final String INFINIMINER_VERSION = "0.3.4";
+    public static final String INFINIMINER_VERSION = "1.5";
     
-    // Colors
-    public static final int IM_RED = 0xFF0000;
-    public static final int IM_BLUE = 0x0000FF;
-    public static final int IM_RED_DARK = 0xAA0000;
-    public static final int IM_BLUE_DARK = 0x0000AA;
+    // Colors (using ARGB or separate components)
+    public static final Vector4f IM_RED = new Vector4f(222/255f, 24/255f, 24/255f, 1.0f);
+    public static final Vector4f IM_BLUE = new Vector4f(80/255f, 150/255f, 255/255f, 1.0f);
     
     // Map dimensions
     public static final int MAP_SIZE_X = 64;
     public static final int MAP_SIZE_Y = 64;
     public static final int MAP_SIZE_Z = 64;
+    public static final int GROUND_LEVEL = 8;
     
     // Network
     public static final int DEFAULT_PORT = 5565;
     
-    // Player
-    public static final float PLAYER_HEIGHT = 1.8f;
-    public static final float PLAYER_SPEED = 5.0f;
-    public static final float PLAYER_JUMP = 6.5f;
-    public static final float PLAYER_GRAVITY = 20.0f;
-    public static final float MOUSE_SENSITIVITY = 0.005f;
+    // Physics
+    public static final float MOVESPEED = 3.5f;
+    public static final float GRAVITY = -8.0f;
+    public static final float JUMPVELOCITY = 4.0f;
+    public static final float CLIMBVELOCITY = 2.5f;
+    public static final float DIEVELOCITY = 15.0f;
     
-    // Blocks
-    public static final byte BLOCK_AIR = 0;
-    public static final byte BLOCK_STONE = 1;
-    public static final byte BLOCK_DIRT = 2;
-    public static final byte BLOCK_GRASS = 3;
-    public static final byte BLOCK_COAL = 4;
-    public static final byte BLOCK_IRON = 5;
-    public static final byte BLOCK_GOLD = 6;
-    public static final byte BLOCK_LAPIS = 7;
-    public static final byte BLOCK_DIAMOND = 8;
-    public static final byte BLOCK_OBSIDIAN = 9;
-    public static final byte BLOCK_BEDROCK = 10;
-    public static final byte BLOCK_WATER = 11;
-    public static final byte BLOCK_LAVA = 12;
-    public static final byte BLOCK_SAND = 13;
-    public static final byte BLOCK_GRAVEL = 14;
-    public static final byte BLOCK_WOOD = 15;
-    public static final byte BLOCK_LEAVES = 16;
+    // Input
+    public enum Buttons {
+        None, Fire, AltFire, Forward, Backward, Left, Right, Sprint, Jump, Crouch,
+        Ping, Deposit, Withdraw, SayAll, SayTeam, ChangeClass, ChangeTeam,
+        Tool1, Tool2, Tool3, Tool4, Tool5, ToolUp, ToolDown, BlockUp, BlockDown
+    }
     
-    // Team colors
-    public static final int TEAM_RED = 0;
-    public static final int TEAM_BLUE = 1;
-    public static final int TEAM_NONE = 2;
+    public enum MouseButton {
+        LeftButton, MiddleButton, RightButton, WheelUp, WheelDown
+    }
     
-    // Game modes
-    public static final int MODE_SANDBOX = 0;
-    public static final int MODE_CTF = 1; // Capture The Flag
-    public static final int MODE_TEAM_DEATHMATCH = 2;
-    public static final int MODE_PURGE = 3;
+    public enum ScreenEffect {
+        None, Death, Teleport, Fall, Explosion
+    }
     
-    // Player classes
-    public static final int CLASS_MASON = 0;
-    public static final int CLASS_PROSPECTOR = 1;
-    public static final int CLASS_MINER = 2;
-    public static final int CLASS_MERCENARY = 3;
-    public static final int CLASS_ENGINEER = 4;
-    public static final int CLASS_SNIPER = 5;
+    public enum InfiniminerSound {
+        DigDirt, DigMetal, Ping, ConstructionGun, Death, CashDeposit,
+        ClickHigh, ClickLow, GroundHit, Teleporter, Jumpblock, Explosion,
+        RadarLow, RadarHigh, RadarSwitch
+    }
     
-    // Block update types
-    public static final byte BLOCK_UPDATE_ADD = 0;
-    public static final byte BLOCK_UPDATE_REMOVE = 1;
+    public enum InfiniminerMessage {
+        BlockBulkTransfer, BlockSet, UseTool, SelectClass, ResourceUpdate,
+        DepositOre, DepositCash, WithdrawOre, TriggerExplosion,
+        PlayerUpdate, PlayerJoined, PlayerLeft, PlayerSetTeam,
+        PlayerDead, PlayerAlive, PlayerPing, ChatMessage, GameOver,
+        PlaySound, TriggerConstructionGunAnimation, SetBeacon
+    }
+    
+    public enum ChatMessageType {
+        None, SayAll, SayRedTeam, SayBlueTeam
+    }
+    
+    public static class ChatMessage {
+        public String message;
+        public ChatMessageType type;
+        public float timestamp;
+        public int newlines;
+
+        public ChatMessage(String message, ChatMessageType type, float timestamp, int newlines) {
+            this.message = message;
+            this.type = type;
+            this.timestamp = timestamp;
+            this.newlines = newlines;
+        }
+    }
+
+    public static class Beacon {
+        public String ID;
+        public PlayerTeam Team;
+    }
+    
+    // Death messages
+    public static final String deathByLava = "WAS INCINERATED BY LAVA!";
+    public static final String deathByElec = "WAS ELECTROCUTED!";
+    public static final String deathByExpl = "WAS KILLED IN AN EXPLOSION!";
+    public static final String deathByFall = "WAS KILLED BY GRAVITY!";
+    public static final String deathByMiss = "WAS KILLED BY MISADVENTURE!";
+    public static final String deathBySuic = "HAS COMMITED PIXELCIDE!";
+    
+    // String Sanitization
+    public static String sanitize(String input) {
+        StringBuilder output = new StringBuilder();
+        for (int i = 0; i < input.length(); i++) {
+            char c = input.charAt(i);
+            if (c >= 32 && c <= 126)
+                output.append(c);
+        }
+        return output.toString();
+    }
 }

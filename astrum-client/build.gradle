@@ -1,3 +1,11 @@
+plugins {
+    id 'application'
+}
+
+application {
+    mainClass = 'com.novusforge.astrum.client.AstrumClient'
+}
+
 dependencies {
     implementation project(':astrum-core')
     implementation project(':astrum-engine')
@@ -5,4 +13,5 @@ dependencies {
     implementation project(':astrum-security')
     testImplementation libs.junit.api
     testRuntimeOnly libs.junit.engine
+    testRuntimeOnly libs.junit.launcher
 }

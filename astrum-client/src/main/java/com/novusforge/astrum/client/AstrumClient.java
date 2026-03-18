@@ -4,6 +4,8 @@ import com.novusforge.astrum.core.world.World;
 import com.novusforge.astrum.engine.RenderBackend;
 import com.novusforge.astrum.engine.EngineFactory;
 import com.novusforge.astrum.security.guardian.SafetyGuardian;
+import com.novusforge.astrum.client.ui.UIManager;
+import com.novusforge.astrum.client.ui.UIState;
 
 /**
  * Main entry point for the Astrum game client.
@@ -14,11 +16,13 @@ public class AstrumClient {
     private final RenderBackend engine;
     @SuppressWarnings("unused")
     private final SafetyGuardian guardian;
+    private final UIManager uiManager;
 
     public AstrumClient() {
         this.world = new World();
         this.engine = EngineFactory.createBackend();
         this.guardian = new SafetyGuardian();
+        this.uiManager = new UIManager();
     }
 
     public void start() {
@@ -27,13 +31,17 @@ public class AstrumClient {
         // Initialize systems
         engine.initialize();
         
-        // Game loop
+        // Game loop simulation
+        System.out.println("Astrum Hub initialized.");
+        
+        // Render current state
+        uiManager.render(engine);
+        
+        // Simulate transition to minigame for verification
+        uiManager.setState(UIState.INFINIMINER_LEGACY);
+        uiManager.render(engine);
+        
         System.out.println("Astrum is running. Press Ctrl+C to stop.");
-        
-        // For demonstration, render one frame and shutdown
-        engine.render();
-        
-        // engine.shutdown();
     }
 
     public static void main(String[] args) {

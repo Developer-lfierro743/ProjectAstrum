@@ -2,95 +2,65 @@
 
 [![Project Status: Active](https://img.shields.io/badge/Project%20Status-Active-green.svg)](https://github.com/Developer-lfierro743/ProjectAstrum)
 [![Java Version: 21+](https://img.shields.io/badge/Java-21+-orange.svg)](https://www.oracle.com/java/technologies/javase/jdk21-archive-downloads.html)
-[![Gradle Version: 9.3.1](https://img.shields.io/badge/Gradle-9.3.1-blue.svg)](https://gradle.org/releases/)
+[![Vulkan: 1.3](https://img.shields.io/badge/Graphics-Vulkan%20%7C%20WebGPU-red.svg)](https://www.vulkan.org/)
 
-> **"More ambitious than Minecraft. More independent than Hytale."**
+> **"A reclaim of the sandbox vision. Independent, Resilient, and Secure."**
 
-Project Astrum is a next-generation sandbox engine and game built from the ground up to reclaim the original ambitious vision of the voxel genre. Designed for the 2026 baseline, it eliminates the technical debt of legacy "spaghetti OOP code" by employing a modern, high-performance architecture centered around **The Formula**.
+Project Astrum is a next-generation voxel engine and gaming platform designed to transcend the limitations of the modern "Games as a Service" (GaaS) model. It exists to provide a permanent, unyielding foundation for creative freedom, technical excellence, and player safety.
+
+---
+
+## 🏛 Why Project Astrum Exists
+
+The voxel genre began with a promise of infinite worlds and absolute freedom. Over time, corporate acquisitions and "Spaghetti OOP" technical debt have led to stagnation, telemetry-heavy ecosystems, and the erosion of player privacy.
+
+**Project Astrum is built to survive.**
+*   **Corporate Resilience**: Built from the ground up with 100% original code and assets. Designed to be legally and technically independent of legacy platforms (Microsoft/Mojang), ensuring the project survives DMCAs and corporate shifts.
+*   **The "Clean-Room" Approach**: By using modern standards (Java 21, Vulkan, WASM-GC), we bypass the legal and technical "gravity" of older engines.
+*   **Safety as a Core Metric**: Unlike other platforms that rely on invasive AI or reactive reporting, Astrum implements the **SafetyGuardian**—a hardcoded, engine-level security layer designed to protect minors and prevent harmful content (CSAM, grooming) before it can be loaded.
 
 ---
 
 ## 🌌 The Vision: "The Formula"
 
-Project Astrum is not just another voxel game; it is a technical and conceptual blueprint designed to deliver unlimited freedom, cutting-edge performance, and a hardcoded ethical environment.
+### 1. Technical Dominance
+*   **GPU-Driven Rendering**: Leveraging Vulkan and WebGPU to move beyond CPU bottlenecks.
+*   **Data-Oriented ECS**: Optimized for modern hardware (Threadrippers, RTX GPUs, and the Snapdragon 6 Gen 1/Adreno 710).
+*   **Universal Unification**: A single codebase that scales from budget school Chromebooks to high-end workstations.
 
-### Core Pillars
-*   **Performance First**: Engineered with a custom **Entity Component System (ECS)** and **Vulkan** backend to harness the full power of modern multi-core CPUs (Threadripper-class) and high-end GPUs.
-*   **Unlimited Scale**: No world borders. No building height limits. Infinite terrain generation with zero overhead.
-*   **Social Simulation**: Native support for massive 100-player social experiments, inspired by the "Purge" and simulation meta.
-*   **Universal Access**: A unified codebase that delivers native performance on Desktop and Mobile, with **Instant Web Play** via WASM-GC and WebGPU (powered by TeaVM).
-*   **SafetyGuardian**: A hardcoded, multi-layered security engine designed to protect players and prevent harmful content (CSAM, grooming) at the core level.
+### 2. Digital Heritage: Legacy Infiniminer
+As a tribute to the roots of the genre, Project Astrum includes a full refactor of the original **Infiniminer** source. We are porting the legacy C#/XNA code to Java/Vulkan, integrating it as a core minigame to preserve the history of the voxel movement within a modern, high-performance environment.
 
----
-
-## 🛠 Tech Stack (2026 Baseline)
-
-*   **Language**: Java 21+ (utilizing Virtual Threads and the Panama API for native interop).
-*   **Build System**: Gradle 9.3.1 (Multiproject architecture).
-*   **Graphics API**: Vulkan (Desktop/Mobile) & WebGPU (Web).
-*   **Architecture**: High-performance ECS optimized for 100k+ entities at 60FPS.
-*   **World Gen**: Optimized 1D byte array chunk storage (32x32x32) using **FastNoiseLite**.
-*   **Web Target**: TeaVM 0.11+ (AOT compilation to WASM-GC).
+### 3. Professional Aesthetics
+Moving away from muted, muddy palettes, Astrum employs a **Matte-Vibrant** art style. High-contrast colors and cutting-edge lighting (SSAO, reflections) create a world that feels alive and visually superior to legacy sandboxes.
 
 ---
 
-## ✨ Key Features
+## 📂 Master Module Architecture
 
-*   **Scientific Ores**: Replaced non-scientific names with real equivalents (e.g., *Ferrous*, *Aurum*, *Cuprous*).
-*   **Greenstone**: The high-performance, unified counterpart to Redstone.
-*   **Matte-Vibrant Aesthetics**: A unique art style designed for high-contrast, vibrant visuals that outshine muted legacy palettes.
-*   **Tiered Progression**: A circular gameplay loop: Basic → Advanced → Overpowered.
-*   **Baked-in Modding API**: A stable, unified API designed for "Universal Unification"—never suffer from breaking updates again.
-*   **Zero Microtransactions**: A free, community-driven marketplace for skins and assets.
-
----
-
-## 📂 Project Structure
-
-Project Astrum is organized into specialized modules for maximum maintainability:
-
-| Module | Purpose |
-| :--- | :--- |
-| `astrum-api` | Stable modding API and unified registry system. |
-| `astrum-common` | Shared data structures, scientific ores, and math (JOML). |
-| `astrum-core` | ECS World manager, entity systems, and "The Purge" logic. |
-| `astrum-engine` | Rendering backend (Vulkan/WebGPU) and mesh management. |
-| `astrum-world` | Procedural infinite world generation (FastNoiseLite). |
-| `astrum-security` | The **SafetyGuardian** rule engine and mod verifier. |
-| `astrum-client` | Game client entry point, input, and UI systems. |
-| `astrum-server` | Headless, high-performance server software. |
-| `astrum-web` | WASM-GC and WebGPU glue for browser-based play. |
+| Module | Status | Core Responsibility |
+| :--- | :--- | :--- |
+| `astrum-api` | 🏗️ | Stable, unified modding API; no more breaking updates. |
+| `astrum-core` | 🏗️ | High-performance ECS World and "The Purge" event logic. |
+| `astrum-engine` | 🏗️ | Universal Render Bridge (Vulkan & WebGPU) with Hardware Scaling. |
+| `astrum-security` | 🏗️ | **SafetyGuardian**: Hardcoded ethics and asset verification. |
+| `astrum-world` | 🏗️ | Infinite procedural generation via FastNoiseLite. |
+| `astrum-web` | 🏗️ | TeaVM / WASM-GC bridge for instant browser play. |
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Development Baseline
 
-### Prerequisites
-- **OpenJDK 21**
-- **Gradle 9.3.1**
+*   **OpenJDK 21**: Utilizing Virtual Threads (Loom) and the Panama API (FFM).
+*   **Gradle 9.3.1**: Modern, modular build infrastructure.
+*   **Target Hardware**: Snapdragon 6 Gen 1 (Adreno 710) optimization baseline.
 
-### Building from Source
+### Quick Start
 ```bash
-# Clone the repository
 git clone https://github.com/Developer-lfierro743/ProjectAstrum.git
-
-# Navigate to directory
 cd ProjectAstrum
-
-# Build all modules
 ./gradlew build -x test
 ```
-
-### Running the Client
-```bash
-./gradlew :astrum-client:run
-```
-
----
-
-## 🛡 Ethics & Privacy
-*   **Privacy First**: No telemetry or censorship in single-player worlds.
-*   **Transparent Security**: The **SafetyGuardian** is a hardcoded set of rules designed solely for player safety and ethical modding.
 
 ---
 

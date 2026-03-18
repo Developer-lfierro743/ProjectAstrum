@@ -2,36 +2,54 @@ package com.novusforge.astrum.infiniminer.engines;
 
 import com.novusforge.astrum.infiniminer.BlockType;
 import com.novusforge.astrum.infiniminer.Defines;
+import com.novusforge.astrum.infiniminer.PropertyBag;
 import org.joml.Vector3f;
 
 /**
- * BlockEngine - Handles block rendering and physics.
+ * BlockEngine - Handles block storage, rendering logic, and collision.
  * Ported from C# XNA to Java 21 LWJGL3.
  */
 public class BlockEngine {
     
-    public byte[][][] blockList;
-    public byte[][][] downloadList;
+    public BlockType[][][] blockList;
+    public BlockType[][][] downloadList;
     
     private static final int REGION_SIZE = 16;
-    private int regionRatio;
-    private int numRegions;
-    private boolean[][] vertexListDirty;
+    private final int regionRatio;
+    private final int numRegions;
+    private final boolean[][] vertexListDirty;
     
+    private PropertyBag _P;
+
     public BlockEngine() {
         regionRatio = Defines.MAP_SIZE_X / REGION_SIZE;
         numRegions = regionRatio * regionRatio;
         
-        blockList = new byte[Defines.MAP_SIZE_X][Defines.MAP_SIZE_Y][Defines.MAP_SIZE_Z];
-        downloadList = new byte[Defines.MAP_SIZE_X][Defines.MAP_SIZE_Y][Defines.MAP_SIZE_Z];
-        vertexListDirty = new boolean[numRegions][17]; // 17 block types
+        blockList = new BlockType[Defines.MAP_SIZE_X][Defines.MAP_SIZE_Y][Defines.MAP_SIZE_Z];
+        downloadList = new BlockType[Defines.MAP_SIZE_X][Defines.MAP_SIZE_Y][Defines.MAP_SIZE_Z];
+        
+        // Initialize with Air/None
+        for (int x = 0; x < Defines.MAP_SIZE_X; x++) {
+            for (int y = 0; y < Defines.MAP_SIZE_Y; y++) {
+                for (int z = 0; z < Defines.MAP_SIZE_Z; z++) {
+                    blockList[x][y][z] = BlockType.None;
+                    downloadList[x][y][z] = BlockType.None;
+                }
+            }
+        }
+        
+        vertexListDirty = new boolean[numRegions][BlockType.values().length];
         
         System.out.println("BlockEngine initialized: " + Defines.MAP_SIZE_X + "x" + Defines.MAP_SIZE_Y + "x" + Defines.MAP_SIZE_Z);
     }
     
-    public void setBlock(int x, int y, int z, byte blockType) {
+    public void setPropertyBag(PropertyBag p) {
+        this._P = p;
+    }
+
+    public void setBlock(int x, int y, int z, BlockType blockType) {
         if (isInBounds(x, y, z)) {
-            byte oldBlock = blockList[x][y][z];
+            BlockType oldBlock = blockList[x][y][z];
             blockList[x][y][z] = blockType;
             
             if (oldBlock != blockType) {
@@ -40,19 +58,19 @@ public class BlockEngine {
         }
     }
     
-    public byte getBlock(int x, int y, int z) {
+    public BlockType getBlock(int x, int y, int z) {
         if (isInBounds(x, y, z)) {
             return blockList[x][y][z];
         }
-        return Defines.BLOCK_AIR;
+        return BlockType.None;
     }
     
-    public void addBlock(int x, int y, int z, byte blockType) {
+    public void addBlock(int x, int y, int z, BlockType blockType) {
         setBlock(x, y, z, blockType);
     }
     
     public void removeBlock(int x, int y, int z) {
-        setBlock(x, y, z, Defines.BLOCK_AIR);
+        setBlock(x, y, z, BlockType.None);
     }
     
     public void makeRegionDirty(int x, int z) {
@@ -61,7 +79,7 @@ public class BlockEngine {
         int regionIndex = regionX + regionZ * regionRatio;
         
         if (regionIndex >= 0 && regionIndex < numRegions) {
-            for (int i = 0; i < 17; i++) {
+            for (int i = 0; i < BlockType.values().length; i++) {
                 vertexListDirty[regionIndex][i] = true;
             }
         }
@@ -74,15 +92,19 @@ public class BlockEngine {
     }
     
     public boolean isTransparent(int x, int y, int z) {
-        byte block = getBlock(x, y, z);
-        return BlockType.isTransparent(block);
+        BlockType block = getBlock(x, y, z);
+        return block.isTransparent();
     }
     
     public boolean isSolid(int x, int y, int z) {
-        byte block = getBlock(x, y, z);
-        return BlockType.isSolid(block);
+        BlockType block = getBlock(x, y, z);
+        return block.isSolid();
     }
     
+    public boolean solidAtPointForPlayer(Vector3f point) {
+        return isSolid((int)Math.floor(point.x), (int)Math.floor(point.y), (int)Math.floor(point.z));
+    }
+
     public float getBlockShade(int x, int y, int z) {
         // Simple lighting - blocks deeper = darker
         float depth = (float) y / Defines.MAP_SIZE_Y;
@@ -94,7 +116,7 @@ public class BlockEngine {
         for (int x = 0; x < Defines.MAP_SIZE_X; x++) {
             for (int y = 0; y < Defines.MAP_SIZE_Y; y++) {
                 for (int z = 0; z < Defines.MAP_SIZE_Z; z++) {
-                    if (downloadList[x][y][z] != Defines.BLOCK_AIR) {
+                    if (downloadList[x][y][z] != BlockType.None) {
                         addBlock(x, y, z, downloadList[x][y][z]);
                     }
                 }
@@ -126,21 +148,7 @@ public class BlockEngine {
             return true; // Render chunk boundaries
         }
         
-        byte neighbor = blockList[nx][ny][nz];
-        return neighbor == Defines.BLOCK_AIR || BlockType.isTransparent(neighbor);
-    }
-    
-    // Vertex data for rendering
-    public static class BlockVertex {
-        public Vector3f position;
-        public float u, v;
-        public float shade;
-        
-        public BlockVertex(float x, float y, float z, float u, float v, float shade) {
-            this.position = new Vector3f(x, y, z);
-            this.u = u;
-            this.v = v;
-            this.shade = shade;
-        }
+        BlockType neighbor = blockList[nx][ny][nz];
+        return neighbor == BlockType.None || neighbor.isTransparent();
     }
 }

@@ -14,8 +14,8 @@ public class Player {
     public Vector3f velocity = new Vector3f(0, 0, 0);
     public float rotationY = 0; // Yaw
     public float rotationX = 0; // Pitch
-    public int team = Defines.TEAM_NONE;
-    public int playerClass = Defines.CLASS_MASON;
+    public PlayerTeam team = PlayerTeam.None;
+    public PlayerClass playerClass = PlayerClass.Miner;
     public int health = 100;
     public int ore = 0;
     public boolean grounded = false;
@@ -23,20 +23,20 @@ public class Player {
     public boolean alive = true;
     
     // Inventory
-    public byte selectedBlock = Defines.BLOCK_STONE;
-    public int[] inventory = new int[9]; // 9 slots
+    public BlockType selectedBlock = BlockType.Rock;
+    public BlockType[] inventory = new BlockType[9]; // 9 slots
     
     public Player() {
-        inventory[0] = Defines.BLOCK_STONE;
-        inventory[1] = Defines.BLOCK_DIRT;
-        inventory[2] = Defines.BLOCK_GRASS;
+        inventory[0] = BlockType.Rock;
+        inventory[1] = BlockType.Dirt;
+        inventory[2] = BlockType.Dirt;
     }
     
     public void update(float deltaTime) {
         if (!alive) return;
         
         // Apply gravity
-        velocity.y -= Defines.PLAYER_GRAVITY * deltaTime;
+        velocity.y += Defines.GRAVITY * deltaTime;
         
         // Apply velocity to position
         position.x += velocity.x * deltaTime;
@@ -73,7 +73,7 @@ public class Player {
     
     public void jump() {
         if (grounded) {
-            velocity.y = Defines.PLAYER_JUMP;
+            velocity.y = Defines.JUMPVELOCITY;
             grounded = false;
         }
     }
@@ -88,7 +88,7 @@ public class Player {
     
     public void selectBlock(int slot) {
         if (slot >= 0 && slot < inventory.length) {
-            selectedBlock = (byte) inventory[slot];
+            selectedBlock = inventory[slot];
         }
     }
 }

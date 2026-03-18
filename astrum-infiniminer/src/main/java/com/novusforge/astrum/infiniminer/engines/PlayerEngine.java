@@ -2,7 +2,7 @@ package com.novusforge.astrum.infiniminer.engines;
 
 import com.novusforge.astrum.infiniminer.BlockType;
 import com.novusforge.astrum.infiniminer.Defines;
-import com.novusforge.astrum.infiniminer.Player;
+import com.novusforge.astrum.infiniminer.PropertyBag;
 import org.joml.Vector3f;
 
 /**
@@ -12,31 +12,29 @@ import org.joml.Vector3f;
 public class PlayerEngine {
     
     private BlockEngine blockEngine;
-    private Player player;
+    private PropertyBag _P;
     
-    private boolean[] keyState = new boolean[256];
+    private final boolean[] keyState = new boolean[256];
     private boolean mouseLocked = false;
     
-    // Player physics constants
-    private static final float MOVE_SPEED = 5.0f;
-    private static final float SPRINT_SPEED = 8.0f;
-    private static final float JUMP_FORCE = 6.5f;
-    private static final float GRAVITY = 20.0f;
+    // Player physics constants (Moved to Defines, but kept here for convenience if needed)
     private static final float PLAYER_RADIUS = 0.3f;
     private static final float PLAYER_HEIGHT = 1.8f;
     
-    public PlayerEngine(BlockEngine blockEngine, Player player) {
+    public PlayerEngine(BlockEngine blockEngine, PropertyBag propertyBag) {
         this.blockEngine = blockEngine;
-        this.player = player;
+        this._P = propertyBag;
         System.out.println("PlayerEngine initialized");
     }
     
     public void update(float deltaTime) {
-        // Handle movement input
-        float moveSpeed = MOVE_SPEED;
+        if (_P.playerDead) return;
+
+        float moveSpeed = Defines.MOVESPEED;
         
         float moveX = 0, moveZ = 0;
         
+        // Basic input mapping for now
         if (keyState[17]) moveZ -= 1; // W
         if (keyState[31]) moveZ += 1; // S
         if (keyState[30]) moveX -= 1; // A
@@ -50,14 +48,14 @@ public class PlayerEngine {
         }
         
         // Apply movement relative to player rotation
-        float sinY = (float) Math.sin(player.rotationY);
-        float cosY = (float) Math.cos(player.rotationY);
+        float sinY = (float) Math.sin(_P.playerCamera.rotationY);
+        float cosY = (float) Math.cos(_P.playerCamera.rotationY);
         
-        player.velocity.x = (sinY * moveZ + cosY * moveX) * moveSpeed;
-        player.velocity.z = (cosY * moveZ - sinY * moveX) * moveSpeed;
+        _P.playerVelocity.x = (sinY * moveZ + cosY * moveX) * moveSpeed;
+        _P.playerVelocity.z = (cosY * moveZ - sinY * moveX) * moveSpeed;
         
         // Apply gravity
-        player.velocity.y -= GRAVITY * deltaTime;
+        _P.playerVelocity.y += Defines.GRAVITY * deltaTime;
         
         // Move and collide
         movePlayer(deltaTime);
@@ -67,32 +65,32 @@ public class PlayerEngine {
     }
     
     private void movePlayer(float deltaTime) {
-        float newX = player.position.x + player.velocity.x * deltaTime;
-        float newY = player.position.y + player.velocity.y * deltaTime;
-        float newZ = player.position.z + player.velocity.z * deltaTime;
+        float newX = _P.playerPosition.x + _P.playerVelocity.x * deltaTime;
+        float newY = _P.playerPosition.y + _P.playerVelocity.y * deltaTime;
+        float newZ = _P.playerPosition.z + _P.playerVelocity.z * deltaTime;
         
         // Check X collision
-        if (!checkCollision(newX, player.position.y, player.position.z)) {
-            player.position.x = newX;
+        if (!checkCollision(newX, _P.playerPosition.y, _P.playerPosition.z)) {
+            _P.playerPosition.x = newX;
         } else {
-            player.velocity.x = 0;
+            _P.playerVelocity.x = 0;
         }
         
         // Check Y collision
-        if (!checkCollision(player.position.x, newY, player.position.z)) {
-            player.position.y = newY;
+        if (!checkCollision(_P.playerPosition.x, newY, _P.playerPosition.z)) {
+            _P.playerPosition.y = newY;
         } else {
-            if (player.velocity.y < 0) {
-                player.grounded = true;
+            if (_P.playerVelocity.y < 0) {
+                // grounded = true; // Should be in PropertyBag or managed here
             }
-            player.velocity.y = 0;
+            _P.playerVelocity.y = 0;
         }
         
         // Check Z collision
-        if (!checkCollision(player.position.x, player.position.y, newZ)) {
-            player.position.z = newZ;
+        if (!checkCollision(_P.playerPosition.x, _P.playerPosition.y, newZ)) {
+            _P.playerPosition.z = newZ;
         } else {
-            player.velocity.z = 0;
+            _P.playerVelocity.z = 0;
         }
     }
     
@@ -105,8 +103,8 @@ public class PlayerEngine {
         for (int dx = -1; dx <= 1; dx++) {
             for (int dy = -1; dy <= 1; dy++) {
                 for (int dz = -1; dz <= 1; dz++) {
-                    byte block = blockEngine.getBlock(ix + dx, iy + dy, iz + dz);
-                    if (BlockType.isSolid(block)) {
+                    BlockType block = blockEngine.getBlock(ix + dx, iy + dy, iz + dz);
+                    if (block.isSolid()) {
                         // Simple AABB collision
                         float blockMinX = ix + dx;
                         float blockMaxX = blockMinX + 1;
@@ -129,9 +127,9 @@ public class PlayerEngine {
     }
     
     private void clampPosition() {
-        player.position.x = Math.max(0.5f, Math.min(Defines.MAP_SIZE_X - 0.5f, player.position.x));
-        player.position.y = Math.max(0, Math.min(Defines.MAP_SIZE_Y - 1, player.position.y));
-        player.position.z = Math.max(0.5f, Math.min(Defines.MAP_SIZE_Z - 0.5f, player.position.z));
+        _P.playerPosition.x = Math.max(0.5f, Math.min(Defines.MAP_SIZE_X - 0.5f, _P.playerPosition.x));
+        _P.playerPosition.y = Math.max(-30, Math.min(Defines.MAP_SIZE_Y + 10, _P.playerPosition.y));
+        _P.playerPosition.z = Math.max(0.5f, Math.min(Defines.MAP_SIZE_Z - 0.5f, _P.playerPosition.z));
     }
     
     public void onKeyPress(int keyCode) {
@@ -140,9 +138,8 @@ public class PlayerEngine {
         }
         
         // Jump
-        if (keyCode == 57 && player.grounded) { // Space
-            player.velocity.y = JUMP_FORCE;
-            player.grounded = false;
+        if (keyCode == 57) { // Space
+             _P.playerVelocity.y = Defines.JUMPVELOCITY;
         }
     }
     
@@ -154,12 +151,12 @@ public class PlayerEngine {
     
     public void onMouseMove(float deltaX, float deltaY) {
         if (mouseLocked) {
-            player.rotationY += deltaX * Defines.MOUSE_SENSITIVITY;
-            player.rotationX -= deltaY * Defines.MOUSE_SENSITIVITY;
+            _P.playerCamera.rotationY += deltaX * _P.mouseSensitivity;
+            _P.playerCamera.rotationX -= deltaY * _P.mouseSensitivity;
             
             // Clamp pitch
-            player.rotationX = Math.max(-(float) Math.PI / 2 + 0.1f, 
-                Math.min((float) Math.PI / 2 - 0.1f, player.rotationX));
+            _P.playerCamera.rotationX = Math.max(-(float) Math.PI / 2 + 0.1f, 
+                Math.min((float) Math.PI / 2 - 0.1f, _P.playerCamera.rotationX));
         }
     }
     
@@ -172,15 +169,11 @@ public class PlayerEngine {
     }
     
     public Vector3f getEyePosition() {
-        return new Vector3f(player.position.x, player.position.y + PLAYER_HEIGHT - 0.2f, player.position.z);
+        return new Vector3f(_P.playerPosition.x, _P.playerPosition.y + PLAYER_HEIGHT - 0.2f, _P.playerPosition.z);
     }
     
     public Vector3f getLookDirection() {
-        Vector3f dir = new Vector3f();
-        dir.x = (float) (Math.sin(player.rotationY) * Math.cos(player.rotationX));
-        dir.y = (float) Math.sin(player.rotationX);
-        dir.z = (float) (Math.cos(player.rotationY) * Math.cos(player.rotationX));
-        return dir;
+        return _P.playerCamera.getForward();
     }
     
     public int[] getTargetBlock() {
@@ -188,32 +181,13 @@ public class PlayerEngine {
         Vector3f dir = getLookDirection();
         
         // Raycast 5 blocks ahead
-        for (int i = 1; i <= 5; i++) {
-            int x = (int) (eyePos.x + dir.x * i);
-            int y = (int) (eyePos.y + dir.y * i);
-            int z = (int) (eyePos.z + dir.z * i);
+        for (float i = 0.5f; i <= 5; i += 0.5f) {
+            int x = (int) Math.floor(eyePos.x + dir.x * i);
+            int y = (int) Math.floor(eyePos.y + dir.y * i);
+            int z = (int) Math.floor(eyePos.z + dir.z * i);
             
-            byte block = blockEngine.getBlock(x, y, z);
-            if (BlockType.isSolid(block)) {
-                return new int[]{x, y, z};
-            }
-        }
-        
-        return null;
-    }
-    
-    public int[] getTargetBlockFace() {
-        Vector3f eyePos = getEyePosition();
-        Vector3f dir = getLookDirection();
-        
-        for (int i = 1; i <= 5; i++) {
-            int x = (int) (eyePos.x + dir.x * i);
-            int y = (int) (eyePos.y + dir.y * i);
-            int z = (int) (eyePos.z + dir.z * i);
-            
-            byte block = blockEngine.getBlock(x, y, z);
-            if (BlockType.isSolid(block)) {
-                // Return the face we're looking at
+            BlockType block = blockEngine.getBlock(x, y, z);
+            if (block.isSolid()) {
                 return new int[]{x, y, z};
             }
         }

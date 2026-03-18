@@ -19,7 +19,8 @@ if (os.isWindows()) {
 
 dependencies {
     api project(':astrum-common')
-    
+    compileOnly 'org.teavm:teavm-jso:0.13.1'
+
     implementation libs.bundles.lwjgl
     runtimeOnly "org.lwjgl:lwjgl::${lwjglNative}"
     runtimeOnly "org.lwjgl:lwjgl-assimp::${lwjglNative}"

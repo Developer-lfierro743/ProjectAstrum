@@ -5,6 +5,10 @@ pluginManagement {
         maven { url "https://teavm.org/maven/repository/" }
         google()
     }
+    plugins {
+        id 'com.android.application' version '9.1.0' apply false
+        id 'com.android.library' version '9.1.0' apply false
+    }
 }
 
 rootProject.name = 'ProjectAstrum'
@@ -19,4 +23,4 @@ include 'astrum-server'
 include 'astrum-web'
 include 'astrum-security'
 include 'astrum-infiniminer'
-// include 'astrum-android'
+include 'astrum-android'
