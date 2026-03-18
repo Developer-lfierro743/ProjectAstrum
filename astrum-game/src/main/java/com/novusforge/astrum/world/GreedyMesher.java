@@ -11,10 +11,18 @@ public class GreedyMesher {
         {0, 1, 2, 0, 2, 3}
     };
 
-    public static ChunkMesh generateMesh(Chunk chunk, ChunkManager manager, int cx, int cy, int cz) {
+    private static final float[] BLOCK_COLORS = {
+        0.0f, 0.0f, 0.0f,
+        0.6f, 0.6f, 0.6f,
+        0.55f, 0.35f, 0.2f,
+        0.2f, 0.6f, 0.2f,
+        0.3f, 0.5f, 0.8f,
+        0.5f, 0.3f, 0.1f,
+    };
+
+    public static ChunkMesh generateMesh(Chunk chunk, ChunkManager manager, int cx, int cz) {
         ChunkMesh mesh = new ChunkMesh();
         int baseX = cx * Chunk.SIZE;
-        int baseY = cy * Chunk.SIZE;
         int baseZ = cz * Chunk.SIZE;
 
         for (int face = 0; face < 6; face++) {
@@ -52,7 +60,7 @@ public class GreedyMesher {
                             if (canExtend) h++;
                         }
 
-                        addFaceToMesh(mesh, x + baseX, y + baseY, z + baseZ, 
+                        addFaceToMesh(mesh, x + baseX, y, z + baseZ, 
                                       w, h, face, current, d);
 
                         x += w;
@@ -67,84 +75,82 @@ public class GreedyMesher {
 
     private static boolean shouldMerge(Chunk chunk, int x, int y, int z, int nx, int ny, int nz, int face, ChunkManager manager) {
         if (x < 0 || x >= Chunk.SIZE || y < 0 || y >= Chunk.SIZE || z < 0 || z >= Chunk.SIZE) {
-            return false;
+            short neighbor = chunk.getBlock(x, y, z);
+            return neighbor != 0;
         }
         short block = chunk.getBlock(x, y, z);
         return block != 0;
     }
 
     private static void addFaceToMesh(ChunkMesh mesh, int x, int y, int z, int w, int h, int face, short blockType, int d) {
-        float u0 = 0, u1 = w;
-        float v0 = 0, v1 = h;
-        int blockColor = getBlockColor(blockType);
-
-        float[] vertices = new float[32];
+        float[] color = getBlockColor(blockType);
+        float[] vertices = new float[24];
 
         switch (face) {
             case 0:
                 for (int i = 0; i < 4; i++) {
-                    int vi = i * 8;
+                    int vi = i * 6;
                     vertices[vi] = x + (i < 2 ? w : 0);
                     vertices[vi + 1] = y + (i % 2 == 0 ? 0 : h);
                     vertices[vi + 2] = z + 1;
-                    vertices[vi + 3] = 0; vertices[vi + 4] = 0; vertices[vi + 5] = 1;
-                    vertices[vi + 6] = (i < 2 ? u1 : u0);
-                    vertices[vi + 7] = (i % 2 == 0 ? v0 : v1);
+                    vertices[vi + 3] = color[0];
+                    vertices[vi + 4] = color[1];
+                    vertices[vi + 5] = color[2];
                 }
                 break;
             case 1:
                 for (int i = 0; i < 4; i++) {
-                    int vi = i * 8;
+                    int vi = i * 6;
                     vertices[vi] = x + (i < 2 ? 0 : -w);
                     vertices[vi + 1] = y + (i % 2 == 0 ? 0 : h);
                     vertices[vi + 2] = z - 1;
-                    vertices[vi + 3] = 0; vertices[vi + 4] = 0; vertices[vi + 5] = -1;
-                    vertices[vi + 6] = (i < 2 ? u1 : u0);
-                    vertices[vi + 7] = (i % 2 == 0 ? v0 : v1);
+                    vertices[vi + 3] = color[0] * 0.8f;
+                    vertices[vi + 4] = color[1] * 0.8f;
+                    vertices[vi + 5] = color[2] * 0.8f;
                 }
                 break;
             case 2:
                 for (int i = 0; i < 4; i++) {
-                    int vi = i * 8;
+                    int vi = i * 6;
                     vertices[vi] = x + (i < 2 ? 0 : w);
                     vertices[vi + 1] = y + h;
                     vertices[vi + 2] = z + (i % 2 == 0 ? 0 : h);
-                    vertices[vi + 3] = 0; vertices[vi + 4] = 1; vertices[vi + 5] = 0;
-                    vertices[vi + 6] = (i < 2 ? u1 : u0);
-                    vertices[vi + 7] = (i % 2 == 0 ? v0 : v1);
+                    vertices[vi + 3] = color[0] * 1.1f;
+                    vertices[vi + 4] = color[1] * 1.1f;
+                    vertices[vi + 5] = color[2] * 1.1f;
                 }
                 break;
             case 3:
                 for (int i = 0; i < 4; i++) {
-                    int vi = i * 8;
+                    int vi = i * 6;
                     vertices[vi] = x + (i < 2 ? 0 : w);
                     vertices[vi + 1] = y - 1;
                     vertices[vi + 2] = z + (i % 2 == 0 ? h : 0);
-                    vertices[vi + 3] = 0; vertices[vi + 4] = -1; vertices[vi + 5] = 0;
-                    vertices[vi + 6] = (i < 2 ? u1 : u0);
-                    vertices[vi + 7] = (i % 2 == 0 ? v0 : v1);
+                    vertices[vi + 3] = color[0] * 0.6f;
+                    vertices[vi + 4] = color[1] * 0.6f;
+                    vertices[vi + 5] = color[2] * 0.6f;
                 }
                 break;
             case 4:
                 for (int i = 0; i < 4; i++) {
-                    int vi = i * 8;
+                    int vi = i * 6;
                     vertices[vi] = x + (i < 2 ? w : 0);
                     vertices[vi + 1] = y + (i % 2 == 0 ? 0 : h);
                     vertices[vi + 2] = z + h;
-                    vertices[vi + 3] = 0; vertices[vi + 4] = 0; vertices[vi + 5] = 1;
-                    vertices[vi + 6] = (i < 2 ? u1 : u0);
-                    vertices[vi + 7] = (i % 2 == 0 ? v0 : v1);
+                    vertices[vi + 3] = color[0] * 0.9f;
+                    vertices[vi + 4] = color[1] * 0.9f;
+                    vertices[vi + 5] = color[2] * 0.9f;
                 }
                 break;
             case 5:
                 for (int i = 0; i < 4; i++) {
-                    int vi = i * 8;
+                    int vi = i * 6;
                     vertices[vi] = x + (i < 2 ? 0 : w);
                     vertices[vi + 1] = y + (i % 2 == 0 ? h : 0);
                     vertices[vi + 2] = z - 1;
-                    vertices[vi + 3] = 0; vertices[vi + 4] = 0; vertices[vi + 5] = -1;
-                    vertices[vi + 6] = (i < 2 ? u1 : u0);
-                    vertices[vi + 7] = (i % 2 == 0 ? v0 : v1);
+                    vertices[vi + 3] = color[0] * 0.7f;
+                    vertices[vi + 4] = color[1] * 0.7f;
+                    vertices[vi + 5] = color[2] * 0.7f;
                 }
                 break;
         }
@@ -156,13 +162,14 @@ public class GreedyMesher {
         }
     }
 
-    private static int getBlockColor(short blockType) {
+    private static float[] getBlockColor(short blockType) {
         switch (blockType) {
-            case 1: return 0x808080;
-            case 2: return 0x8B4513;
-            case 3: return 0x228B22;
-            case 4: return 0x4169E1;
-            default: return 0xFFFFFF;
+            case 1: return new float[]{0.6f, 0.6f, 0.6f};
+            case 2: return new float[]{0.55f, 0.35f, 0.2f};
+            case 3: return new float[]{0.2f, 0.6f, 0.2f};
+            case 4: return new float[]{0.3f, 0.5f, 0.8f};
+            case 5: return new float[]{0.5f, 0.3f, 0.1f};
+            default: return new float[]{1.0f, 1.0f, 1.0f};
         }
     }
 

@@ -64,7 +64,7 @@ public class ChunkManager {
                     if (!chunks.containsKey(key)) {
                         queueWorldGen(cx, 0, cz);
                     } else if (!meshes.containsKey(key)) {
-                        queueMeshGen(cx, 0, cz);
+                        queueMeshGen(cx, cz);
                     }
                 }
             }
@@ -79,17 +79,17 @@ public class ChunkManager {
             Chunk chunk = generateChunk(cx, cy, cz);
             chunks.put(key, chunk);
             pendingWorldGen.decrementAndGet();
-            queueMeshGen(cx, cy, cz);
+            queueMeshGen(cx, cz);
         });
         pendingWorldGen.incrementAndGet();
     }
 
-    private void queueMeshGen(int cx, int cy, int cz) {
-        long key = getChunkKey(cx, cy, cz);
+    private void queueMeshGen(int cx, int cz) {
+        long key = getChunkKey(cx, 0, cz);
         meshGenExecutor.submit(() -> {
             Chunk chunk = chunks.get(key);
             if (chunk != null) {
-                ChunkMesh mesh = GreedyMesher.generateMesh(chunk, this, cx, cy, cz);
+                ChunkMesh mesh = GreedyMesher.generateMesh(chunk, this, cx, cz);
                 meshLock.writeLock().lock();
                 try {
                     ChunkMesh oldMesh = meshes.put(key, mesh);
@@ -217,7 +217,7 @@ public class ChunkManager {
     }
 
     public void regenerateMesh(int cx, int cy, int cz) {
-        queueMeshGen(cx, cy, cz);
+        queueMeshGen(cx, cz);
     }
 
     public int getPendingWorldGen() { return pendingWorldGen.get(); }

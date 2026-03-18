@@ -4,8 +4,11 @@ import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
 import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.glfw.GLFWVulkan.*;
@@ -15,7 +18,7 @@ import static org.lwjgl.vulkan.KHRSwapchain.*;
 import static org.lwjgl.system.MemoryStack.*;
 import static org.lwjgl.system.MemoryUtil.*;
 
-public class VulkanRenderer implements GPUResourceManager {
+public class VulkanRenderer {
     private long window;
     private VkInstance instance;
     private long surface;
@@ -26,22 +29,35 @@ public class VulkanRenderer implements GPUResourceManager {
     private long commandPool;
     
     private long swapChain;
-    private LongBuffer swapChainImages;
-    private LongBuffer swapChainImageViews;
-    private LongBuffer swapChainFramebuffers;
+    private long[] swapChainImages;
+    private long[] swapChainImageViews;
+    private long[] swapChainFramebuffers;
     private long renderPass;
     private long pipelineLayout;
     private long graphicsPipeline;
-    private LongBuffer commandBuffers;
+    private long descriptorSetLayout;
+    private long descriptorPool;
+    private long[] descriptorSets;
+    private long uniformBuffer;
+    private long[] commandBuffers;
+
+    private float aspectRatio = 16f / 9f;
+    private float fov = 70f;
+    private float nearPlane = 0.1f;
+    private float farPlane = 1000f;
+
+    private long currentFrame = 0;
 
     public void init() {
         initWindow();
         initVulkan();
         initSwapChain();
         initRenderPass();
+        initDescriptorSet();
         initGraphicsPipeline();
         initFramebuffers();
         initCommandBuffers();
+        initUniformBuffer();
     }
 
     private void initWindow() {
@@ -264,6 +280,8 @@ public class VulkanRenderer implements GPUResourceManager {
                 width = caps.currentExtent().width();
                 height = caps.currentExtent().height();
             }
+            
+            aspectRatio = (float) width / (float) height;
 
             VkSwapchainCreateInfoKHR createInfo = VkSwapchainCreateInfoKHR.calloc(stack)
                     .sType(VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR)
@@ -289,14 +307,18 @@ public class VulkanRenderer implements GPUResourceManager {
             IntBuffer imageCount = stack.mallocInt(1);
             vkGetSwapchainImagesKHR(device, swapChain, imageCount, null);
             int imgCount = imageCount.get(0);
-            swapChainImages = stack.mallocLong(imgCount);
-            vkGetSwapchainImagesKHR(device, swapChain, imageCount, swapChainImages);
+            LongBuffer imagesBuf = stack.mallocLong(imgCount);
+            vkGetSwapchainImagesKHR(device, swapChain, imageCount, imagesBuf);
+            swapChainImages = new long[imgCount];
+            for (int i = 0; i < imgCount; i++) {
+                swapChainImages[i] = imagesBuf.get(i);
+            }
 
-            swapChainImageViews = stack.mallocLong(imgCount);
+            swapChainImageViews = new long[imgCount];
             for (int i = 0; i < imgCount; i++) {
                 VkImageViewCreateInfo viewInfo = VkImageViewCreateInfo.calloc(stack)
                         .sType(VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO)
-                        .image(swapChainImages.get(i))
+                        .image(swapChainImages[i])
                         .viewType(VK_IMAGE_VIEW_TYPE_2D)
                         .format(format)
                         .components(VkComponentMapping.calloc(stack)
@@ -313,7 +335,7 @@ public class VulkanRenderer implements GPUResourceManager {
 
                 LongBuffer viewBuf = stack.mallocLong(1);
                 vkCreateImageView(device, viewInfo, null, viewBuf);
-                swapChainImageViews.put(i, viewBuf.get(0));
+                swapChainImageViews[i] = viewBuf.get(0);
             }
             
             System.out.println("[Vulkan] Swap chain created: " + imgCount + " images");
@@ -364,18 +386,97 @@ public class VulkanRenderer implements GPUResourceManager {
         }
     }
 
+    private void initDescriptorSet() {
+        try (MemoryStack stack = stackPush()) {
+            VkDescriptorSetLayoutBinding.Buffer bindings = VkDescriptorSetLayoutBinding.calloc(1, stack)
+                    .binding(0)
+                    .descriptorType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+                    .descriptorCount(1)
+                    .stageFlags(VK_SHADER_STAGE_VERTEX_BIT);
+
+            VkDescriptorSetLayoutCreateInfo layoutInfo = VkDescriptorSetLayoutCreateInfo.calloc(stack)
+                    .sType(VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO)
+                    .pBindings(bindings);
+
+            LongBuffer layoutBuf = stack.mallocLong(1);
+            if (vkCreateDescriptorSetLayout(device, layoutInfo, null, layoutBuf) != VK_SUCCESS) {
+                throw new RuntimeException("Failed to create descriptor set layout");
+            }
+            descriptorSetLayout = layoutBuf.get(0);
+
+            VkDescriptorPoolSize.Buffer poolSize = VkDescriptorPoolSize.calloc(1, stack)
+                    .type(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+                    .descriptorCount(1);
+
+            VkDescriptorPoolCreateInfo poolInfo = VkDescriptorPoolCreateInfo.calloc(stack)
+                    .sType(VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO)
+                    .maxSets(1)
+                    .pPoolSizes(poolSize);
+
+            LongBuffer poolBuf = stack.mallocLong(1);
+            if (vkCreateDescriptorPool(device, poolInfo, null, poolBuf) != VK_SUCCESS) {
+                throw new RuntimeException("Failed to create descriptor pool");
+            }
+            descriptorPool = poolBuf.get(0);
+
+            VkDescriptorSetAllocateInfo allocInfo = VkDescriptorSetAllocateInfo.calloc(stack)
+                    .sType(VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO)
+                    .descriptorPool(descriptorPool)
+                    .pSetLayouts(stack.longs(descriptorSetLayout));
+
+            descriptorSets = new long[1];
+            LongBuffer setBuf = stack.mallocLong(1);
+            if (vkAllocateDescriptorSets(device, allocInfo, setBuf) != VK_SUCCESS) {
+                throw new RuntimeException("Failed to allocate descriptor set");
+            }
+            descriptorSets[0] = setBuf.get(0);
+
+            System.out.println("[Vulkan] Descriptor set created.");
+        }
+    }
+
+    private void initUniformBuffer() {
+        try (MemoryStack stack = stackPush()) {
+            VkBufferCreateInfo bufferInfo = VkBufferCreateInfo.calloc(stack)
+                    .sType(VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO)
+                    .size(64 * 3)
+                    .usage(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)
+                    .sharingMode(VK_SHARING_MODE_EXCLUSIVE);
+
+            LongBuffer buffer = stack.mallocLong(1);
+            if (vkCreateBuffer(device, bufferInfo, null, buffer) != VK_SUCCESS) {
+                throw new RuntimeException("Failed to create uniform buffer");
+            }
+            uniformBuffer = buffer.get(0);
+            System.out.println("[Vulkan] Uniform buffer created.");
+        }
+    }
+
     private void initGraphicsPipeline() {
         try (MemoryStack stack = stackPush()) {
             ByteBuffer vertCode = stack.UTF8(
                 "#version 450\n" +
-                "vec2 pos[6] = vec2[](vec2(-1,-1), vec2(1,-1), vec2(-1,1), vec2(-1,1), vec2(1,-1), vec2(1,1));\n" +
-                "void main() { gl_Position = vec4(pos[gl_VertexIndex], 0.0, 1.0); }"
+                "layout(binding = 0) uniform UniformBuffer {\n" +
+                "    mat4 projection;\n" +
+                "    mat4 view;\n" +
+                "    mat4 model;\n" +
+                "} ubo;\n" +
+                "layout(location = 0) in vec3 position;\n" +
+                "layout(location = 1) in vec3 color;\n" +
+                "layout(location = 0) out vec3 fragColor;\n" +
+                "void main() {\n" +
+                "    gl_Position = ubo.projection * ubo.view * ubo.model * vec4(position, 1.0);\n" +
+                "    fragColor = color;\n" +
+                "}"
             );
             
             ByteBuffer fragCode = stack.UTF8(
                 "#version 450\n" +
-                "layout(location = 0) out vec4 color;\n" +
-                "void main() { color = vec4(0.2, 0.4, 0.7, 1.0); }"
+                "layout(location = 0) in vec3 fragColor;\n" +
+                "layout(location = 0) out vec4 outColor;\n" +
+                "void main() {\n" +
+                "    outColor = vec4(fragColor, 1.0);\n" +
+                "}"
             );
 
             VkShaderModuleCreateInfo vertInfo = VkShaderModuleCreateInfo.calloc(stack)
@@ -408,8 +509,27 @@ public class VulkanRenderer implements GPUResourceManager {
                 .module(fragModule)
                 .pName(stack.UTF8("main"));
 
+            VkVertexInputBindingDescription.Buffer bindingDesc = VkVertexInputBindingDescription.calloc(1, stack)
+                    .binding(0)
+                    .stride(24)
+                    .inputRate(VK_VERTEX_INPUT_RATE_VERTEX);
+
+            VkVertexInputAttributeDescription.Buffer attrDesc = VkVertexInputAttributeDescription.calloc(2, stack);
+            attrDesc.get(0)
+                .binding(0)
+                .location(0)
+                .format(VK_FORMAT_R32G32B32_SFLOAT)
+                .offset(0);
+            attrDesc.get(1)
+                .binding(0)
+                .location(1)
+                .format(VK_FORMAT_R32G32B32_SFLOAT)
+                .offset(12);
+
             VkPipelineVertexInputStateCreateInfo vertInput = VkPipelineVertexInputStateCreateInfo.calloc(stack)
-                    .sType(VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO);
+                    .sType(VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO)
+                    .pVertexBindingDescriptions(bindingDesc)
+                    .pVertexAttributeDescriptions(attrDesc);
 
             VkPipelineInputAssemblyStateCreateInfo assembly = VkPipelineInputAssemblyStateCreateInfo.calloc(stack)
                     .sType(VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO)
@@ -437,7 +557,7 @@ public class VulkanRenderer implements GPUResourceManager {
                     .polygonMode(VK_POLYGON_MODE_FILL)
                     .lineWidth(1.0f)
                     .cullMode(VK_CULL_MODE_BACK_BIT)
-                    .frontFace(VK_FRONT_FACE_CLOCKWISE)
+                    .frontFace(VK_FRONT_FACE_COUNTER_CLOCKWISE)
                     .depthBiasEnable(false);
 
             VkPipelineMultisampleStateCreateInfo multisample = VkPipelineMultisampleStateCreateInfo.calloc(stack)
@@ -457,7 +577,8 @@ public class VulkanRenderer implements GPUResourceManager {
                     .blendConstants(stack.floats(0, 0, 0, 0));
 
             VkPipelineLayoutCreateInfo layoutInfo = VkPipelineLayoutCreateInfo.calloc(stack)
-                    .sType(VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO);
+                    .sType(VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO)
+                    .pSetLayouts(stack.longs(descriptorSetLayout));
 
             LongBuffer layoutBuf = stack.mallocLong(1);
             vkCreatePipelineLayout(device, layoutInfo, null, layoutBuf);
@@ -491,13 +612,12 @@ public class VulkanRenderer implements GPUResourceManager {
     }
 
     private void initFramebuffers() {
-        int count = (int) swapChainImages.remaining();
-        swapChainFramebuffers = org.lwjgl.system.MemoryStack.stackPush().mallocLong(count);
+        swapChainFramebuffers = new long[swapChainImageViews.length];
         
         try (MemoryStack stack = stackPush()) {
-            for (int i = 0; i < count; i++) {
+            for (int i = 0; i < swapChainImageViews.length; i++) {
                 LongBuffer attachment = stack.mallocLong(1);
-                attachment.put(0, swapChainImageViews.get(i));
+                attachment.put(0, swapChainImageViews[i]);
 
                 VkFramebufferCreateInfo info = VkFramebufferCreateInfo.calloc(stack)
                         .sType(VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO)
@@ -509,64 +629,29 @@ public class VulkanRenderer implements GPUResourceManager {
 
                 LongBuffer buf = stack.mallocLong(1);
                 vkCreateFramebuffer(device, info, null, buf);
-                swapChainFramebuffers.put(i, buf.get(0));
+                swapChainFramebuffers[i] = buf.get(0);
             }
         }
-        System.out.println("[Vulkan] " + count + " framebuffers created.");
+        System.out.println("[Vulkan] " + swapChainFramebuffers.length + " framebuffers created.");
     }
 
     private void initCommandBuffers() {
-        int count = (int) swapChainFramebuffers.remaining();
-        commandBuffers = org.lwjgl.system.MemoryStack.stackPush().mallocLong(count);
+        commandBuffers = new long[swapChainFramebuffers.length];
         
         try (MemoryStack stack = stackPush()) {
             VkCommandBufferAllocateInfo allocInfo = VkCommandBufferAllocateInfo.calloc(stack)
                     .sType(VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO)
                     .commandPool(commandPool)
                     .level(VK_COMMAND_BUFFER_LEVEL_PRIMARY)
-                    .commandBufferCount(count);
+                    .commandBufferCount(commandBuffers.length);
 
-            PointerBuffer buf = stack.mallocPointer(count);
+            PointerBuffer buf = stack.mallocPointer(commandBuffers.length);
             vkAllocateCommandBuffers(device, allocInfo, buf);
-            for (int i = 0; i < count; i++) {
-                commandBuffers.put(i, buf.get(i));
+            for (int i = 0; i < commandBuffers.length; i++) {
+                commandBuffers[i] = buf.get(i);
             }
         }
-        
-        for (int i = 0; i < count; i++) {
-            recordCommandBuffer(commandBuffers.get(i), i);
-        }
         System.out.println("[Vulkan] Command buffers created.");
-    }
-
-    private void recordCommandBuffer(long cmdBuffer, int imageIndex) {
-        try (MemoryStack stack = stackPush()) {
-            VkCommandBuffer vkCmd = new VkCommandBuffer(cmdBuffer, device);
-            
-            VkCommandBufferBeginInfo beginInfo = VkCommandBufferBeginInfo.calloc(stack)
-                    .sType(VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO);
-
-            vkBeginCommandBuffer(vkCmd, beginInfo);
-
-            VkClearValue.Buffer clearValue = VkClearValue.calloc(1, stack);
-            clearValue.color().float32(stack.floats(0.15f, 0.15f, 0.2f, 1.0f));
-
-            VkRenderPassBeginInfo renderPassInfo = VkRenderPassBeginInfo.calloc(stack)
-                    .sType(VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO)
-                    .renderPass(renderPass)
-                    .framebuffer(swapChainFramebuffers.get(imageIndex))
-                    .renderArea(VkRect2D.calloc(stack)
-                        .offset(VkOffset2D.calloc(stack).set(0, 0))
-                        .extent(VkExtent2D.calloc(stack).set(1280, 720)))
-                    .pClearValues(clearValue);
-
-            vkCmdBeginRenderPass(vkCmd, renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-            vkCmdBindPipeline(vkCmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-            vkCmdDraw(vkCmd, 6, 1, 0, 0);
-            vkCmdEndRenderPass(vkCmd);
-
-            vkEndCommandBuffer(vkCmd);
-        }
     }
 
     public boolean windowShouldClose() {
@@ -580,8 +665,32 @@ public class VulkanRenderer implements GPUResourceManager {
             vkAcquireNextImageKHR(device, swapChain, Long.MAX_VALUE, 
                 VK_NULL_HANDLE, VK_NULL_HANDLE, imageIndex);
 
-            VkCommandBuffer vkCmd = new VkCommandBuffer(commandBuffers.get(imageIndex.get(0)), device);
+            VkCommandBuffer vkCmd = new VkCommandBuffer(commandBuffers[imageIndex.get(0)], device);
             
+            VkCommandBufferBeginInfo beginInfo = VkCommandBufferBeginInfo.calloc(stack)
+                    .sType(VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO);
+
+            vkBeginCommandBuffer(vkCmd, beginInfo);
+
+            VkClearValue.Buffer clearColor = VkClearValue.calloc(1, stack);
+            clearColor.color().float32(stack.floats(0.4f, 0.6f, 1.0f, 1.0f));
+
+            VkRenderPassBeginInfo renderPassInfo = VkRenderPassBeginInfo.calloc(stack)
+                    .sType(VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO)
+                    .renderPass(renderPass)
+                    .framebuffer(swapChainFramebuffers[imageIndex.get(0)])
+                    .renderArea(VkRect2D.calloc(stack)
+                        .offset(VkOffset2D.calloc(stack).set(0, 0))
+                        .extent(VkExtent2D.calloc(stack).set(1280, 720)))
+                    .pClearValues(clearColor);
+
+            vkCmdBeginRenderPass(vkCmd, renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+            vkCmdBindPipeline(vkCmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+            vkCmdDraw(vkCmd, 3, 1, 0, 0);
+            vkCmdEndRenderPass(vkCmd);
+
+            vkEndCommandBuffer(vkCmd);
+
             VkSubmitInfo submitInfo = VkSubmitInfo.calloc(stack)
                     .sType(VK_STRUCTURE_TYPE_SUBMIT_INFO)
                     .pCommandBuffers(stack.pointers(vkCmd.address()));
@@ -606,35 +715,35 @@ public class VulkanRenderer implements GPUResourceManager {
         return window;
     }
 
-    @Override
-    public void deleteBuffer(long bufferId) {
-        if (device != null && bufferId != 0) {
-            vkDestroyBuffer(device, bufferId, null);
-        }
-    }
-
-    @Override
-    public void deleteImage(long imageId) {
-        if (device != null && imageId != 0) {
-            vkDestroyImage(device, imageId, null);
-        }
+    public float getAspectRatio() {
+        return aspectRatio;
     }
 
     public void cleanup() {
         if (device != null) {
             vkDeviceWaitIdle(device);
             
-            int count = (int) swapChainFramebuffers.remaining();
-            for (int i = 0; i < count; i++) {
-                vkDestroyFramebuffer(device, swapChainFramebuffers.get(i), null);
+            if (uniformBuffer != 0) {
+                vkDestroyBuffer(device, uniformBuffer, null);
+            }
+            
+            if (descriptorPool != 0) {
+                vkDestroyDescriptorPool(device, descriptorPool, null);
+            }
+            
+            if (descriptorSetLayout != 0) {
+                vkDestroyDescriptorSetLayout(device, descriptorSetLayout, null);
+            }
+            
+            for (long fb : swapChainFramebuffers) {
+                vkDestroyFramebuffer(device, fb, null);
             }
             vkDestroyPipeline(device, graphicsPipeline, null);
             vkDestroyPipelineLayout(device, pipelineLayout, null);
             vkDestroyRenderPass(device, renderPass, null);
             
-            count = (int) swapChainImageViews.remaining();
-            for (int i = 0; i < count; i++) {
-                vkDestroyImageView(device, swapChainImageViews.get(i), null);
+            for (long view : swapChainImageViews) {
+                vkDestroyImageView(device, view, null);
             }
             vkDestroySwapchainKHR(device, swapChain, null);
             vkDestroyCommandPool(device, commandPool, null);

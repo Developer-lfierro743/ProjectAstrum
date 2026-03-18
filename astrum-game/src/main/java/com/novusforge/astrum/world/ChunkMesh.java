@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 public class ChunkMesh {
-    public static final int VERTEX_SIZE = 8;
+    public static final int VERTEX_SIZE = 6;
 
     private final List<float[]> opaquePositions = new ArrayList<>();
     private final List<int[]> opaqueIndices = new ArrayList<>();
