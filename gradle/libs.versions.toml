@@ -14,14 +14,6 @@ lwjgl-stb = { group = "org.lwjgl", name = "lwjgl-stb", version.ref = "lwjgl" }
 lwjgl-shaderc = { group = "org.lwjgl", name = "lwjgl-shaderc", version.ref = "lwjgl" }
 lwjgl-vma = { group = "org.lwjgl", name = "lwjgl-vma", version.ref = "lwjgl" }
 
-# LWJGL Natives
-lwjgl-natives = { group = "org.lwjgl", name = "lwjgl", version.ref = "lwjgl", classifier = "natives-linux" }
-lwjgl-glfw-natives = { group = "org.lwjgl", name = "lwjgl-glfw", version.ref = "lwjgl", classifier = "natives-linux" }
-lwjgl-vulkan-natives = { group = "org.lwjgl", name = "lwjgl-vulkan", version.ref = "lwjgl", classifier = "natives-linux" }
-lwjgl-stb-natives = { group = "org.lwjgl", name = "lwjgl-stb", version.ref = "lwjgl", classifier = "natives-linux" }
-lwjgl-shaderc-natives = { group = "org.lwjgl", name = "lwjgl-shaderc", version.ref = "lwjgl", classifier = "natives-linux" }
-lwjgl-vma-natives = { group = "org.lwjgl", name = "lwjgl-vma", version.ref = "lwjgl", classifier = "natives-linux" }
-
 # Math & Noise
 joml = { group = "org.joml", name = "joml", version.ref = "joml" }
 fastnoiselite = { group = "io.github.auburn", name = "fastnoiselite", version.ref = "fastnoiselite" }
@@ -39,11 +31,6 @@ lwjgl = [
     "lwjgl-shaderc",
     "lwjgl-vma"
 ]
-lwjgl-natives = [
-    "lwjgl-natives",
-    "lwjgl-glfw-natives",
-    "lwjgl-vulkan-natives",
-    "lwjgl-stb-natives",
-    "lwjgl-shaderc-natives",
-    "lwjgl-vma-natives"
-]
+
+[plugins]
+# Add plugins if needed

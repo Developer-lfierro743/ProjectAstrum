@@ -1,5 +1,12 @@
 dependencies {
     api project(':astrum-core')
     api libs.bundles.lwjgl
-    runtimeOnly libs.bundles.lwjgl.natives
+
+    // Natives for Linux
+    runtimeOnly variantOf(libs.lwjgl) { classifier("natives-linux") }
+    runtimeOnly variantOf(libs.lwjgl.glfw) { classifier("natives-linux") }
+    runtimeOnly variantOf(libs.lwjgl.vulkan) { classifier("natives-linux") }
+    runtimeOnly variantOf(libs.lwjgl.stb) { classifier("natives-linux") }
+    runtimeOnly variantOf(libs.lwjgl.shaderc) { classifier("natives-linux") }
+    runtimeOnly variantOf(libs.lwjgl.vma) { classifier("natives-linux") }
 }
