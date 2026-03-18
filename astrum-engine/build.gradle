@@ -1,0 +1,5 @@
+dependencies {
+    api project(':astrum-core')
+    api libs.bundles.lwjgl
+    runtimeOnly libs.bundles.lwjgl.natives
+}
