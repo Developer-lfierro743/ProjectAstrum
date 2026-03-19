@@ -39,6 +39,9 @@ public class Main {
             game = new Game(renderer.getWindow());
             game.init();
             
+            // Set up buffer deletion callback
+            com.novusforge.astrum.world.World.setBufferDeleter(renderer::deleteBuffer);
+            
             System.out.println();
             System.out.println("[Render] Vulkan renderer initialized!");
             System.out.println("[Game] Astrum Pre-classic loaded!");
@@ -51,6 +54,9 @@ public class Main {
             long fpsTimer = System.currentTimeMillis();
             int tickCount = 0;
             
+            Matrix4f projectionMatrix = new Matrix4f();
+            Matrix4f viewMatrix = new Matrix4f();
+            
             while (!renderer.windowShouldClose() && game.isRunning()) {
                 glfwPollEvents();
                 
@@ -61,7 +67,22 @@ public class Main {
                 deltaTime = Math.min(deltaTime, 0.1f);
                 
                 game.update(deltaTime);
-                renderer.render();
+                
+                // Update matrices
+                projectionMatrix.setPerspective((float) Math.toRadians(70.0f), renderer.getAspectRatio(), 0.1f, 1000.0f, true);
+                game.getInput().getViewMatrix(viewMatrix);
+                viewMatrix.translate(-game.getPlayer().getPosition().x, -game.getPlayer().getPosition().y, -game.getPlayer().getPosition().z);
+
+                // Render visible chunks
+                java.util.Map<Long, com.novusforge.astrum.world.ChunkMesh> visibleMeshes = 
+                    game.getWorld().getVisibleMeshes(
+                        game.getPlayer().getPosition().x, 
+                        game.getPlayer().getPosition().y, 
+                        game.getPlayer().getPosition().z, 
+                        null // TODO: Implement frustum planes
+                    );
+                
+                renderer.render(viewMatrix, projectionMatrix, visibleMeshes);
                 
                 frameCount++;
                 tickCount++;

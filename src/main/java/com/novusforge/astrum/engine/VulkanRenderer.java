@@ -1,5 +1,6 @@
 package com.novusforge.astrum.engine;
 
+import org.joml.Matrix4f;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.*;
@@ -7,8 +8,10 @@ import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import com.novusforge.astrum.world.ChunkMesh;
 
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.glfw.GLFWVulkan.*;
@@ -39,6 +42,7 @@ public class VulkanRenderer {
     private long descriptorPool;
     private long[] descriptorSets;
     private long uniformBuffer;
+    private long uniformBufferMemory;
     private long[] commandBuffers;
 
     private float aspectRatio = 16f / 9f;
@@ -437,18 +441,37 @@ public class VulkanRenderer {
 
     private void initUniformBuffer() {
         try (MemoryStack stack = stackPush()) {
-            VkBufferCreateInfo bufferInfo = VkBufferCreateInfo.calloc(stack)
-                    .sType(VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO)
-                    .size(64 * 3)
-                    .usage(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)
-                    .sharingMode(VK_SHARING_MODE_EXCLUSIVE);
+            long bufferSize = 64 * 3; // 3 x mat4
 
-            LongBuffer buffer = stack.mallocLong(1);
-            if (vkCreateBuffer(device, bufferInfo, null, buffer) != VK_SUCCESS) {
-                throw new RuntimeException("Failed to create uniform buffer");
-            }
-            uniformBuffer = buffer.get(0);
-            System.out.println("[Vulkan] Uniform buffer created.");
+            createBuffer(bufferSize, 
+                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                stack.mallocLong(1).put(0, 0), stack.mallocLong(1).put(0, 0));
+            
+            // Re-fetching handles because createBuffer above was using stack buffers
+            LongBuffer lp = stack.mallocLong(1);
+            LongBuffer mp = stack.mallocLong(1);
+            createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, lp, mp);
+            uniformBuffer = lp.get(0);
+            uniformBufferMemory = mp.get(0);
+
+            VkDescriptorBufferInfo.Buffer bufferInfo = VkDescriptorBufferInfo.calloc(1, stack)
+                    .buffer(uniformBuffer)
+                    .offset(0)
+                    .range(bufferSize);
+
+            VkWriteDescriptorSet.Buffer descriptorWrite = VkWriteDescriptorSet.calloc(1, stack)
+                    .sType(VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET)
+                    .dstSet(descriptorSets[0])
+                    .dstBinding(0)
+                    .dstArrayElement(0)
+                    .descriptorType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+                    .descriptorCount(1)
+                    .pBufferInfo(bufferInfo);
+
+            vkUpdateDescriptorSets(device, descriptorWrite, null);
+            System.out.println("[Vulkan] Uniform buffer and descriptor set initialized.");
         }
     }
 
@@ -511,7 +534,7 @@ public class VulkanRenderer {
 
             VkVertexInputBindingDescription.Buffer bindingDesc = VkVertexInputBindingDescription.calloc(1, stack)
                     .binding(0)
-                    .stride(24)
+                    .stride(24) // 6 floats * 4 bytes
                     .inputRate(VK_VERTEX_INPUT_RATE_VERTEX);
 
             VkVertexInputAttributeDescription.Buffer attrDesc = VkVertexInputAttributeDescription.calloc(2, stack);
@@ -654,19 +677,105 @@ public class VulkanRenderer {
         System.out.println("[Vulkan] Command buffers created.");
     }
 
+    public void createBuffer(long size, int usage, int properties, LongBuffer buffer, LongBuffer memory) {
+        try (MemoryStack stack = stackPush()) {
+            VkBufferCreateInfo bufferInfo = VkBufferCreateInfo.calloc(stack)
+                    .sType(VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO)
+                    .size(size)
+                    .usage(usage)
+                    .sharingMode(VK_SHARING_MODE_EXCLUSIVE);
+
+            if (vkCreateBuffer(device, bufferInfo, null, buffer) != VK_SUCCESS) {
+                throw new RuntimeException("Failed to create buffer");
+            }
+
+            VkMemoryRequirements memRequirements = VkMemoryRequirements.calloc(stack);
+            vkGetBufferMemoryRequirements(device, buffer.get(0), memRequirements);
+
+            VkMemoryAllocateInfo allocInfo = VkMemoryAllocateInfo.calloc(stack)
+                    .sType(VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO)
+                    .allocationSize(memRequirements.size())
+                    .memoryTypeIndex(findMemoryType(memRequirements.memoryTypeBits(), properties));
+
+            if (vkAllocateMemory(device, allocInfo, null, memory) != VK_SUCCESS) {
+                throw new RuntimeException("Failed to allocate buffer memory");
+            }
+
+            vkBindBufferMemory(device, buffer.get(0), memory.get(0), 0);
+        }
+    }
+
+    private int findMemoryType(int typeFilter, int properties) {
+        try (MemoryStack stack = stackPush()) {
+            VkPhysicalDeviceMemoryProperties memProperties = VkPhysicalDeviceMemoryProperties.calloc(stack);
+            vkGetPhysicalDeviceMemoryProperties(physicalDevice, memProperties);
+
+            for (int i = 0; i < memProperties.memoryTypeCount(); i++) {
+                if ((typeFilter & (1 << i)) != 0 && (memProperties.memoryTypes(i).propertyFlags() & properties) == properties) {
+                    return i;
+                }
+            }
+        }
+        throw new RuntimeException("Failed to find suitable memory type");
+    }
+
+    public void uploadMesh(ChunkMesh mesh) {
+        if (!mesh.hasOpaqueData()) return;
+        
+        try (MemoryStack stack = stackPush()) {
+            FloatBuffer vertices = mesh.buildOpaqueVertexData();
+            long vSize = vertices.limit() * 4L;
+            
+            LongBuffer vBuf = stack.mallocLong(1);
+            LongBuffer vMem = stack.mallocLong(1);
+            createBuffer(vSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, vBuf, vMem);
+            
+            PointerBuffer data = stack.mallocPointer(1);
+            vkMapMemory(device, vMem.get(0), 0, vSize, 0, data);
+            memCopy(memAddress(vertices), data.get(0), vSize);
+            vkUnmapMemory(device, vMem.get(0));
+            
+            mesh.setOpaqueVboId(vBuf.get(0));
+            
+            IntBuffer indices = mesh.buildOpaqueIndexData();
+            long iSize = indices.limit() * 4L;
+            
+            LongBuffer iBuf = stack.mallocLong(1);
+            LongBuffer iMem = stack.mallocLong(1);
+            createBuffer(iSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, iBuf, iMem);
+            
+            vkMapMemory(device, iMem.get(0), 0, iSize, 0, data);
+            memCopy(memAddress(indices), data.get(0), iSize);
+            vkUnmapMemory(device, iMem.get(0));
+            
+            mesh.setOpaqueIboId(iBuf.get(0));
+            
+            // Note: In a production engine, we would use a more robust manager for these memory handles.
+            // For Pre-classic, storing them in ChunkMesh is acceptable.
+        }
+    }
+
     public boolean windowShouldClose() {
         return glfwWindowShouldClose(window);
     }
 
-    public void render() {
+    public void render(Matrix4f view, Matrix4f projection, Map<Long, ChunkMesh> meshes) {
         try (MemoryStack stack = stackPush()) {
+            // Update Uniform Buffer
+            PointerBuffer data = stack.mallocPointer(1);
+            vkMapMemory(device, uniformBufferMemory, 0, 64 * 3, 0, data);
+            ByteBuffer buffer = data.getByteBuffer(0, 64 * 3);
+            projection.get(0, buffer);
+            view.get(64, buffer);
+            new Matrix4f().get(128, buffer); // Identity model for world-space meshes
+            vkUnmapMemory(device, uniformBufferMemory);
+
             IntBuffer imageIndex = stack.mallocInt(1);
-            
-            vkAcquireNextImageKHR(device, swapChain, Long.MAX_VALUE, 
-                VK_NULL_HANDLE, VK_NULL_HANDLE, imageIndex);
+            vkAcquireNextImageKHR(device, swapChain, Long.MAX_VALUE, VK_NULL_HANDLE, VK_NULL_HANDLE, imageIndex);
 
             VkCommandBuffer vkCmd = new VkCommandBuffer(commandBuffers[imageIndex.get(0)], device);
-            
             VkCommandBufferBeginInfo beginInfo = VkCommandBufferBeginInfo.calloc(stack)
                     .sType(VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO);
 
@@ -686,9 +795,21 @@ public class VulkanRenderer {
 
             vkCmdBeginRenderPass(vkCmd, renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
             vkCmdBindPipeline(vkCmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-            vkCmdDraw(vkCmd, 3, 1, 0, 0);
-            vkCmdEndRenderPass(vkCmd);
+            vkCmdBindDescriptorSets(vkCmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, descriptorSets, null);
 
+            for (ChunkMesh mesh : meshes.values()) {
+                if (mesh.getOpaqueVboId() == 0) {
+                    uploadMesh(mesh);
+                }
+                
+                if (mesh.getOpaqueVboId() != 0) {
+                    vkCmdBindVertexBuffers(vkCmd, 0, stack.longs(mesh.getOpaqueVboId()), stack.longs(0));
+                    vkCmdBindIndexBuffer(vkCmd, mesh.getOpaqueIboId(), 0, VK_INDEX_TYPE_UINT32);
+                    vkCmdDrawIndexed(vkCmd, mesh.getOpaqueIndexCount(), 1, 0, 0, 0);
+                }
+            }
+
+            vkCmdEndRenderPass(vkCmd);
             vkEndCommandBuffer(vkCmd);
 
             VkSubmitInfo submitInfo = VkSubmitInfo.calloc(stack)
@@ -698,13 +819,10 @@ public class VulkanRenderer {
             vkQueueSubmit(graphicsQueue, submitInfo, VK_NULL_HANDLE);
             vkQueueWaitIdle(graphicsQueue);
 
-            IntBuffer idx = stack.mallocInt(1);
-            idx.put(0, imageIndex.get(0));
-            
             VkPresentInfoKHR presentInfo = VkPresentInfoKHR.calloc(stack)
                     .sType(VK_STRUCTURE_TYPE_PRESENT_INFO_KHR)
                     .pSwapchains(stack.longs(swapChain))
-                    .pImageIndices(idx);
+                    .pImageIndices(imageIndex);
 
             vkQueuePresentKHR(presentQueue, presentInfo);
             vkQueueWaitIdle(presentQueue);
@@ -725,6 +843,7 @@ public class VulkanRenderer {
             
             if (uniformBuffer != 0) {
                 vkDestroyBuffer(device, uniformBuffer, null);
+                vkFreeMemory(device, uniformBufferMemory, null);
             }
             
             if (descriptorPool != 0) {
@@ -757,5 +876,12 @@ public class VulkanRenderer {
             glfwDestroyWindow(window);
         }
         glfwTerminate();
+    }
+
+    public void deleteBuffer(long bufferId) {
+        // Basic deletion - in a full engine we would also free the memory associated with it.
+        // For pre-classic, this is enough to avoid immediate crashes but will leak memory over time.
+        // TODO: Proper memory management with VMA or similar.
+        vkDestroyBuffer(device, bufferId, null);
     }
 }

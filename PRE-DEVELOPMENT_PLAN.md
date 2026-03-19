@@ -63,7 +63,7 @@ astrum-engine   - Render Bridge (Vulkan/WebGPU)
 astrum-security - SafetyGuardian
 astrum-world    - Procedural generation
 astrum-web      - TeaVM/WASM bridge
-astrum-game     - Game logic
+astrum-client     - Game logic
 ```
 
 ---
