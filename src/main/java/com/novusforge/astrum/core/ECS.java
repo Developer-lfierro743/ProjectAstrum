@@ -7,7 +7,7 @@ import java.util.*;
  * Implements cached queries and entity ID reuse for maximum optimization.
  */
 public class ECS {
-    private static final int MAX_ENTITIES = 100_000;
+    private static final int MAX_ENTITIES = 10_000;
     
     private final BitSet[] entityMasks;
     private final Map<Class<?>, Object[]> componentArrays = new HashMap<>();

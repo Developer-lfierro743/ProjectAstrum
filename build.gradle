@@ -37,6 +37,8 @@ repositories {
 }
 
 dependencies {
+    implementation 'org.xerial:sqlite-jdbc:3.45.1.0'
+    implementation 'org.slf4j:slf4j-simple:2.0.12'
     implementation libs.joml
     implementation libs.bundles.lwjgl
     implementation(libs.vkbootstrap) {
@@ -69,6 +71,10 @@ tasks.withType(JavaCompile).configureEach {
 
 tasks.withType(JavaExec).configureEach {
     jvmArgs += [
+        '-Xmx512m',
+        '-Xms128m',
+        '-XX:+UseG1GC',
+        '-XX:MaxGCPauseMillis=50',
         '--enable-preview',
         '--enable-native-access=ALL-UNNAMED'
     ]

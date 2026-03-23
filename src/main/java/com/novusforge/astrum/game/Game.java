@@ -16,55 +16,61 @@ public class Game {
     private ChunkManager chunkManager;
     private ECS ecs;
     private SafetyGuardian guardian;
-    
+    private VulkanRenderer renderer;
+
     private int playerEntity;
     private long window;
     private boolean running = true;
-    
+
     private int lastLeftClickState = 0;
     private int lastRightClickState = 0;
-    
-    public Game(long window, ECS ecs, SafetyGuardian guardian) {
+
+    public Game(long window, VulkanRenderer renderer, ECS ecs, SafetyGuardian guardian) {
         this.window = window;
+        this.renderer = renderer;
         this.ecs = ecs;
         this.guardian = guardian;
     }
     
     public void init() {
         input = new InputManager(window);
-        player = new Player(0, 20, 0);
-        
+        player = new Player(0, 100, 0); // Spawn high above terrain
+
         // Create player entity in ECS as per Formula Part 1
         playerEntity = ecs.createEntity();
         ecs.addComponent(playerEntity, new Components.Position(player.getPosition()));
         ecs.addComponent(playerEntity, new Components.Velocity(new Vector3f()));
         ecs.addComponent(playerEntity, new Components.PlayerTag());
-        
+
         world = new World();
         chunkManager = world.getChunkManager();
-        
+
+        // Enable test cube rendering for demonstration
+        renderer.setRenderTestCube(true);
+
         System.out.println("[Game] World initialized with seed: " + world.getSeed());
-        System.out.println("[Game] Spawn point: (0, 20, 0) | Entity ID: " + playerEntity);
+        System.out.println("[Game] Spawn point: (0, 100, 0) | Entity ID: " + playerEntity);
+        System.out.println("[Game] Test cube rendering enabled");
     }
     
     public void update(float deltaTime) {
         if (input.isKeyPressed(GLFW_KEY_ESCAPE)) {
             input.releasePointerLock();
         }
-        
+
         if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_PRESS) {
             input.requestPointerLock();
         }
-        
+
         Vector3f pos = player.getPosition();
         world.updatePlayerPosition(pos.x, pos.y, pos.z);
-        
+
         // Update ECS Position from Player object for now
         // In the future, movement logic will live in ECS Systems
         ecs.getComponent(playerEntity, Components.Position.class).value().set(pos);
-        
+
         player.update(deltaTime, input, (x, y, z) -> world.getBlock(x, y, z));
-        
+
         int playerChunkX = (int) Math.floor(pos.x / Chunk.SIZE);
         int playerChunkZ = (int) Math.floor(pos.z / Chunk.SIZE);
         chunkManager.tick();

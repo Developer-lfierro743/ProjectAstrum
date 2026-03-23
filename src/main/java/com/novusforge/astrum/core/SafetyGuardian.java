@@ -9,26 +9,36 @@ import java.util.regex.Pattern;
 /**
  * SafetyGuardian: The hardcoded "Fort Knox" guardian of Project Astrum.
  * "A reclaim of the sandbox vision. Independent, Resilient, and Secure."
- * 
- * Implements resilient, non-bypassable security checks using checksums and 
- * advanced pattern matching instead of fragile string contains.
  */
 public final class SafetyGuardian {
     private static final Logger LOGGER = Logger.getLogger("SafetyGuardian");
 
-    public enum SafetyResult {
-        ALLOW, WARN, BLOCK
+    /**
+     * SafetyResult: Carries the decision and the metadata/reason for that decision.
+     */
+    public record SafetyResult(Decision decision, String reason) {
+        public enum Decision { ALLOW, WARN, BLOCK }
+        
+        public static final SafetyResult ALLOW = new SafetyResult(Decision.ALLOW, "Clean");
+        public static final SafetyResult WARN = new SafetyResult(Decision.WARN, "Suspicious");
+        public static final SafetyResult BLOCK = new SafetyResult(Decision.BLOCK, "Forbidden");
     }
 
-    public sealed interface SafetyContext permits ChatContext, ModContext, ContentContext, ActionContext {
+    // --- Typed Contexts ---
+
+    public sealed interface SafetyContext permits ChatContext, ActionContext, DataContext {
         String identifier();
+    }
+
+    public sealed interface DataContext extends SafetyContext permits ModContext, ContentContext {
+        byte[] data();
     }
 
     public record ChatContext(String playerId, String message) implements SafetyContext {
         @Override public String identifier() { return "Player:" + playerId; }
     }
 
-    public record ModContext(String modId, String loader, Map<String, String> metadata) implements SafetyContext {
+    public record ModContext(String modId, String loader, byte[] data, Map<String, String> metadata) implements DataContext {
         @Override public String identifier() { return "Mod:" + modId + " (" + loader + ")"; }
     }
 
@@ -36,16 +46,26 @@ public final class SafetyGuardian {
         @Override public String identifier() { return "Action:" + action + " by " + actor + " on " + target; }
     }
 
-    public record ContentContext(String type, String assetName, String checksum) implements SafetyContext {
-        @Override public String identifier() { return "Asset:" + assetName + " [" + type + "] (SHA-256:" + checksum + ")"; }
+    public record ContentContext(String type, String assetName, byte[] data) implements DataContext {
+        @Override public String identifier() { return "Asset:" + assetName + " [" + type + "]"; }
     }
+
+    // --- Guardian Engine Logic ---
 
     private final List<SafetyRule<?>> rules = new ArrayList<>();
 
     public SafetyGuardian() {
-        rules.add(new SexualContentRule());
-        rules.add(new NativeModRule());
-        rules.add(new ChatGuardianRule());
+        rules.add(new FileIntegrityRule());   // 1st: FileIntegrityRule (Existing)
+        rules.add(new SexualRule());          // 2nd: SexualRule (CSAM Gate)
+        rules.add(new MinorContactRule());    // 3rd: MinorContactRule
+        rules.add(new GroomingPatternRule()); // 4th: GroomingPatternRule
+        rules.add(new NativeModRule());       // 5th: NativeModRule (Existing)
+        rules.add(new AntiCheatRule());       // 6th: AntiCheatRule
+        rules.add(new IdentityFraudRule());   // 7th: IdentityFraudRule
+        rules.add(new GriefingPatternRule()); // 8th: GriefingPatternRule
+        rules.add(new HarassmentRule());      // 9th: HarassmentRule
+        rules.add(new ChatGuardianRule());    // 10th: ChatGuardianRule (Existing)
+        rules.add(new IGDRule());             // 11th: IGDRule (Wellbeing Only)
     }
 
     public SafetyResult validate(SafetyContext context) {
@@ -53,10 +73,10 @@ public final class SafetyGuardian {
 
         for (var rule : rules) {
             SafetyResult result = rule.evaluateUnsafe(context);
-            if (result.ordinal() > worstCase.ordinal()) {
+            if (result.decision().ordinal() > worstCase.decision().ordinal()) {
                 worstCase = result;
                 logViolation(rule.name(), context, result);
-                if (worstCase == SafetyResult.BLOCK) break;
+                if (worstCase.decision() == SafetyResult.Decision.BLOCK) break;
             }
         }
         return worstCase;
@@ -67,76 +87,99 @@ public final class SafetyGuardian {
     }
 
     private void logViolation(String rule, SafetyContext ctx, SafetyResult res) {
-        Level level = (res == SafetyResult.BLOCK) ? Level.SEVERE : Level.WARNING;
-        LOGGER.log(level, "[FORT-KNOX] {0} -> {1} triggered by {2}", 
-            new Object[]{res, rule, ctx.identifier()});
+        Level level = (res.decision() == SafetyResult.Decision.BLOCK) ? Level.SEVERE : Level.WARNING;
+        LOGGER.log(level, "[FORT-KNOX] {0} -> {1} ({2}) triggered by {3}", 
+            new Object[]{res.decision(), rule, res.reason(), ctx.identifier()});
     }
 
-    private interface SafetyRule<T extends SafetyContext> {
+    interface SafetyRule<T extends SafetyContext> {
         String name();
         SafetyResult check(T context);
         
         @SuppressWarnings("unchecked")
         default SafetyResult evaluateUnsafe(SafetyContext context) {
-            try { return check((T) context); } 
-            catch (ClassCastException e) { return SafetyResult.ALLOW; }
+            if (isSupported(context)) {
+                return check((T) context);
+            }
+            return SafetyResult.ALLOW;
+        }
+
+        default boolean isSupported(SafetyContext context) {
+            try {
+                T casted = (T) context;
+                return true;
+            } catch (ClassCastException e) {
+                return false;
+            }
         }
     }
 
     /**
-     * Resilient Content Blocker: Uses checksums and obfuscation-resistant patterns.
+     * FileIntegrityRule: Global hash/pattern check for all binary data.
      */
-    private static final class SexualContentRule implements SafetyRule<ContentContext> {
-        // Hardcoded blacklisted checksums for known prohibited assets (Jenny Mod, etc.)
+    private static final class FileIntegrityRule implements SafetyRule<DataContext> {
         private static final Set<String> BLACKLISTED_CHECKSUMS = Set.of(
-            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", // Example placeholder
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", 
             "aff01234567890abcdef01234567890abcdef01234567890abcdef012345678"
         );
 
-        // Obfuscation-resistant regex for asset names
         private static final Pattern HARMFUL_ASSET_PATTERN = Pattern.compile(
             ".*(j[e3]n+y|n[u0]de|nsfw|adult).*", Pattern.CASE_INSENSITIVE
         );
 
-        @Override public String name() { return "Content-Integrity-Gate"; }
-        @Override public SafetyResult check(ContentContext context) {
-            // Check 1: Cryptographic Checksum (Bypass-proof)
-            if (BLACKLISTED_CHECKSUMS.contains(context.checksum())) {
-                return SafetyResult.BLOCK;
-            }
-
-            // Check 2: Advanced Pattern Matching
-            if (HARMFUL_ASSET_PATTERN.matcher(context.assetName()).matches()) {
-                return SafetyResult.BLOCK;
-            }
-
+        @Override public String name() { return "Global-Integrity-Gate"; }
+        @Override public SafetyResult check(DataContext context) {
+            String actualHash = HashUtils.computeSHA256(context.data());
+            if (BLACKLISTED_CHECKSUMS.contains(actualHash)) return SafetyResult.BLOCK;
+            if (HARMFUL_ASSET_PATTERN.matcher(context.identifier()).matches()) return SafetyResult.BLOCK;
             return SafetyResult.ALLOW;
+        }
+
+        @Override public boolean isSupported(SafetyContext context) {
+            return context instanceof DataContext;
         }
     }
 
+    /**
+     * NativeModRule: Checks specifically for mod JAR bytecode integrity.
+     */
     private static final class NativeModRule implements SafetyRule<ModContext> {
-        @Override public String name() { return "Native-Verifier"; }
+        @Override public String name() { return "Mod-Bytecode-Verifier"; }
         @Override public SafetyResult check(ModContext context) {
             String loader = context.loader().toLowerCase();
             if (loader.contains("forge") || loader.contains("fabric") || loader.contains("quilt")) {
                 return SafetyResult.BLOCK;
             }
+
+            BytecodeScanner.ScanResult scan = BytecodeScanner.scan(context.data());
+            if (!scan.isSafe()) {
+                return new SafetyResult(SafetyResult.Decision.BLOCK, scan.violation());
+            }
+
             return SafetyResult.ALLOW;
+        }
+
+        @Override public boolean isSupported(SafetyContext context) {
+            return context instanceof ModContext;
         }
     }
 
+    /**
+     * ChatGuardianRule: Basic pattern matching for ethics and safety.
+     */
     private static final class ChatGuardianRule implements SafetyRule<ChatContext> {
-        // Resilient pattern matching for chat grooming/abuse
         private static final Pattern GROOMING_PATTERN = Pattern.compile(
             ".*(sus-phrase|bad-pattern|[s5]u[s5]).*", Pattern.CASE_INSENSITIVE
         );
 
         @Override public String name() { return "Ethics-Engine"; }
         @Override public SafetyResult check(ChatContext context) {
-            if (GROOMING_PATTERN.matcher(context.message()).matches()) {
-                return SafetyResult.BLOCK;
-            }
+            if (GROOMING_PATTERN.matcher(context.message()).matches()) return SafetyResult.BLOCK;
             return SafetyResult.ALLOW;
+        }
+
+        @Override public boolean isSupported(SafetyContext context) {
+            return context instanceof ChatContext;
         }
     }
 }

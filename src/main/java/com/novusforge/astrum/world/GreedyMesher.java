@@ -30,17 +30,27 @@ public class GreedyMesher {
             int d = face % 2 == 0 ? 1 : -1;
 
             for (int y = 0; y < Chunk.SIZE; y++) {
-                for (int x = 0; x < Chunk.SIZE; ) {
-                    int z = 0;
-                    while (z < Chunk.SIZE) {
+                for (int x = 0; x < Chunk.SIZE; x++) {
+                    for (int z = 0; z < Chunk.SIZE; z++) {
                         short current = chunk.getBlock(x, y, z);
                         if (current == 0) {
-                            z++;
                             continue;
                         }
 
+                        // Skip if already processed (block behind is same)
+                        int px = x - off[0];
+                        int py = y - off[1];
+                        int pz = z - off[2];
+                        if (px >= 0 && px < Chunk.SIZE && 
+                            py >= 0 && py < Chunk.SIZE && 
+                            pz >= 0 && pz < Chunk.SIZE) {
+                            if (chunk.getBlock(px, py, pz) == current) {
+                                continue;
+                            }
+                        }
+
                         int w = 1;
-                        while (x + w < Chunk.SIZE && 
+                        while (x + w < Chunk.SIZE &&
                                chunk.getBlock(x + w, y, z) == current &&
                                shouldMerge(chunk, x + w, y, z, x + w - 1, y, z, face, manager)) {
                             w++;
@@ -51,7 +61,7 @@ public class GreedyMesher {
                         while (y + h < Chunk.SIZE && canExtend) {
                             for (int i = 0; i < w; i++) {
                                 short block = chunk.getBlock(x + i, y + h, z);
-                                if (block != current || 
+                                if (block != current ||
                                     !shouldMerge(chunk, x + i, y + h, z, x + i, y + h - 1, z, face, manager)) {
                                     canExtend = false;
                                     break;
@@ -60,11 +70,11 @@ public class GreedyMesher {
                             if (canExtend) h++;
                         }
 
-                        addFaceToMesh(mesh, x + baseX, y, z + baseZ, 
+                        addFaceToMesh(mesh, x + baseX, y, z + baseZ,
                                       w, h, face, current, d);
 
-                        x += w;
-                        z++;
+                        x += w - 1; // -1 because the for loop will increment x
+                        break; // Break out of z loop, continue with next x
                     }
                 }
             }

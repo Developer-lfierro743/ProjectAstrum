@@ -83,7 +83,7 @@ public class World {
         return seed;
     }
 
-    public static void setBufferDeleter(Consumer<Long> deleter) {
+    public static void setBufferDeleter(java.util.function.BiConsumer<Long, Long> deleter) {
         ChunkMesh.setBufferDeleter(deleter);
     }
 

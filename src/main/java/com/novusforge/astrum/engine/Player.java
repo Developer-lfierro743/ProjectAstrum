@@ -26,9 +26,9 @@ public class Player {
     
     public void update(float deltaTime, InputManager input, WorldInterface world) {
         this.input = input;
-        
+
         float currentSpeed = isSprinting ? sprintSpeed : speed;
-        
+
         Vector3f forward = new Vector3f();
         Vector3f right = new Vector3f();
         input.getForwardVector(forward);
@@ -37,9 +37,9 @@ public class Player {
         right.y = 0;
         forward.normalize();
         right.normalize();
-        
+
         Vector3f moveDir = new Vector3f(0, 0, 0);
-        
+
         if (input.isForwardPressed()) {
             moveDir.add(forward);
         }
@@ -52,36 +52,50 @@ public class Player {
         if (input.isRightPressed()) {
             moveDir.add(right);
         }
-        
+
         if (moveDir.length() > 0) {
             moveDir.normalize().mul(currentSpeed * deltaTime);
             position.add(moveDir.x, 0, moveDir.z);
         }
-        
+
         if (input.isJumpPressed() && onGround) {
             fallVelocity = jumpVelocity;
             onGround = false;
         }
-        
-        isSprinting = input.isKeyPressed(GLFW_KEY_LEFT_SHIFT) || 
+
+        isSprinting = input.isKeyPressed(GLFW_KEY_LEFT_SHIFT) ||
                       input.isKeyPressed(GLFW_KEY_RIGHT_SHIFT);
-        
+
         fallVelocity += gravity * deltaTime;
         position.y += fallVelocity * deltaTime;
+
+        // Check for ground collision
+        int playerBlockX = (int) Math.floor(position.x);
+        int playerBlockY = (int) Math.floor(position.y - 1.0f);
+        int playerBlockZ = (int) Math.floor(position.z);
         
         if (world != null) {
-            int blockY = (int) Math.floor(position.y);
-            if (position.y < blockY + 1.5f && blockY >= 0) {
-                position.y = blockY + 1.5f;
+            short blockBelow = world.getBlock(playerBlockX, playerBlockY, playerBlockZ);
+            float groundLevel = playerBlockY + 1.0f;
+            
+            if (position.y <= groundLevel + 0.5f && position.y > groundLevel - 1.0f && blockBelow != 0) {
+                position.y = groundLevel + 0.5f;
+                fallVelocity = 0;
+                onGround = true;
+            } else if (position.y < 1.5f) {
+                // Bedrock floor at y=0
+                position.y = 1.5f;
+                fallVelocity = 0;
+                onGround = true;
+            } else {
+                onGround = false;
+            }
+        } else {
+            if (position.y < 1.5f) {
+                position.y = 1.5f;
                 fallVelocity = 0;
                 onGround = true;
             }
-        }
-        
-        if (position.y < 1.5f) {
-            position.y = 1.5f;
-            fallVelocity = 0;
-            onGround = true;
         }
     }
     

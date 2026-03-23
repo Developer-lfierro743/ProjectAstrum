@@ -23,12 +23,16 @@ public class ChunkMesh {
 
     private long opaqueVboId = 0;
     private long opaqueIboId = 0;
+    private long opaqueVboMemId = 0;
+    private long opaqueIboMemId = 0;
     private long transparentVboId = 0;
     private long transparentIboId = 0;
+    private long transparentVboMemId = 0;
+    private long transparentIboMemId = 0;
 
-    private static Consumer<Long> bufferDeleter;
+    private static java.util.function.BiConsumer<Long, Long> bufferDeleter;
 
-    public static void setBufferDeleter(Consumer<Long> deleter) {
+    public static void setBufferDeleter(java.util.function.BiConsumer<Long, Long> deleter) {
         bufferDeleter = deleter;
     }
 
@@ -123,8 +127,12 @@ public class ChunkMesh {
 
     public void setOpaqueVboId(long id) { this.opaqueVboId = id; }
     public void setOpaqueIboId(long id) { this.opaqueIboId = id; }
+    public void setOpaqueVboMemId(long id) { this.opaqueVboMemId = id; }
+    public void setOpaqueIboMemId(long id) { this.opaqueIboMemId = id; }
     public void setTransparentVboId(long id) { this.transparentVboId = id; }
     public void setTransparentIboId(long id) { this.transparentIboId = id; }
+    public void setTransparentVboMemId(long id) { this.transparentVboMemId = id; }
+    public void setTransparentIboMemId(long id) { this.transparentIboMemId = id; }
     public long getOpaqueVboId() { return opaqueVboId; }
     public long getOpaqueIboId() { return opaqueIboId; }
     public long getTransparentVboId() { return transparentVboId; }
@@ -132,15 +140,19 @@ public class ChunkMesh {
 
     public void dispose() {
         if (bufferDeleter != null) {
-            if (opaqueVboId != 0) bufferDeleter.accept(opaqueVboId);
-            if (opaqueIboId != 0) bufferDeleter.accept(opaqueIboId);
-            if (transparentVboId != 0) bufferDeleter.accept(transparentVboId);
-            if (transparentIboId != 0) bufferDeleter.accept(transparentIboId);
+            if (opaqueVboId != 0) bufferDeleter.accept(opaqueVboId, opaqueVboMemId);
+            if (opaqueIboId != 0) bufferDeleter.accept(opaqueIboId, opaqueIboMemId);
+            if (transparentVboId != 0) bufferDeleter.accept(transparentVboId, transparentVboMemId);
+            if (transparentIboId != 0) bufferDeleter.accept(transparentIboId, transparentIboMemId);
         }
         opaqueVboId = 0;
         opaqueIboId = 0;
+        opaqueVboMemId = 0;
+        opaqueIboMemId = 0;
         transparentVboId = 0;
         transparentIboId = 0;
+        transparentVboMemId = 0;
+        transparentIboMemId = 0;
         opaquePositions.clear();
         opaqueIndices.clear();
         transparentPositions.clear();

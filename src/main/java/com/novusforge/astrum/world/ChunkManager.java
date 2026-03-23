@@ -9,8 +9,8 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class ChunkManager {
-    public static final int RENDER_DISTANCE = 8;
-    public static final int UNLOAD_DISTANCE = 12;
+    public static final int RENDER_DISTANCE = 3;
+    public static final int UNLOAD_DISTANCE = 5;
     
     private final Map<Long, Chunk> chunks = new ConcurrentHashMap<>();
     private final Map<Long, ChunkMesh> meshes = new ConcurrentHashMap<>();
@@ -87,18 +87,23 @@ public class ChunkManager {
     private void queueMeshGen(int cx, int cz) {
         long key = getChunkKey(cx, 0, cz);
         meshGenExecutor.submit(() -> {
-            Chunk chunk = chunks.get(key);
-            if (chunk != null) {
-                ChunkMesh mesh = GreedyMesher.generateMesh(chunk, this, cx, cz);
-                meshLock.writeLock().lock();
-                try {
-                    ChunkMesh oldMesh = meshes.put(key, mesh);
-                    if (oldMesh != null) {
-                        oldMesh.dispose();
+            try {
+                Chunk chunk = chunks.get(key);
+                if (chunk != null) {
+                    ChunkMesh mesh = GreedyMesher.generateMesh(chunk, this, cx, cz);
+                    meshLock.writeLock().lock();
+                    try {
+                        ChunkMesh oldMesh = meshes.put(key, mesh);
+                        if (oldMesh != null) {
+                            oldMesh.dispose();
+                        }
+                    } finally {
+                        meshLock.writeLock().unlock();
                     }
-                } finally {
-                    meshLock.writeLock().unlock();
                 }
+            } catch (Exception e) {
+                System.err.println("[MeshGen] ERROR generating mesh for (" + cx + ", " + cz + "): " + e.getMessage());
+                e.printStackTrace();
             }
             pendingMeshGen.decrementAndGet();
         });
@@ -114,7 +119,7 @@ public class ChunkManager {
             for (int z = 0; z < Chunk.SIZE; z++) {
                 float nx = (baseX + x) * 0.01f;
                 float nz = (baseZ + z) * 0.01f;
-                float height = noise.GetNoise(nx, nz) * 16 + 16;
+                float height = noise.GetNoise(nx, nz) * 20 + 50; // Higher base height (30-70 range)
                 float cave = noise.GetNoise(nx * 2, nz * 2);
                 float cave2 = noise.GetNoise(nx * 3, nz * 3);
 
@@ -126,14 +131,14 @@ public class ChunkManager {
                         if (cave > 0.3f && cave2 > 0.3f) {
                             chunk.setBlock(x, y, z, (short) 0);
                         } else if (worldY < height - 8) {
-                            chunk.setBlock(x, y, z, (short) 2);
+                            chunk.setBlock(x, y, z, (short) 2); // Stone
                         } else {
-                            chunk.setBlock(x, y, z, (short) 1);
+                            chunk.setBlock(x, y, z, (short) 1); // Dirt
                         }
                     } else if (worldY < height) {
-                        chunk.setBlock(x, y, z, (short) 3);
+                        chunk.setBlock(x, y, z, (short) 3); // Grass
                     } else if (worldY == (int) height && worldY < 30) {
-                        chunk.setBlock(x, y, z, (short) 4);
+                        chunk.setBlock(x, y, z, (short) 4); // Water
                     }
                 }
             }
