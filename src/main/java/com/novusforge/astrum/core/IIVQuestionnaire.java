@@ -164,7 +164,19 @@ public class IIVQuestionnaire extends JFrame {
         }
 
         IIVResult result = new IIVResult(decision, totalScore);
+        
+        // SAVE RESULT IMMEDIATELY AND FORCE FLUSH
         saveResult(result);
+        
+        // Verify file was created
+        File file = new File(RESULT_FILE);
+        if (!file.exists()) {
+            System.err.println("[IIV] ERROR: Failed to save result file!");
+        } else {
+            System.out.println("[IIV] Result saved to: " + RESULT_FILE);
+            System.out.println("[IIV] Decision: " + decision + " | Score: " + totalScore);
+        }
+        
         showResults(result);
     }
 
@@ -226,9 +238,24 @@ public class IIVQuestionnaire extends JFrame {
     }
 
     private void saveResult(IIVResult result) {
-        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(RESULT_FILE))) {
-            oos.writeObject(result);
+        try {
+            File file = new File(RESULT_FILE);
+            File parent = file.getParentFile();
+            if (parent != null && !parent.exists()) {
+                parent.mkdirs();
+            }
+            
+            try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(file))) {
+                oos.writeObject(result);
+                oos.flush();
+                oos.close();
+            }
+            
+            System.out.println("[IIV] Result file saved: " + file.getAbsolutePath());
+            System.out.println("[IIV] File exists: " + file.exists());
+            System.out.println("[IIV] File size: " + file.length() + " bytes");
         } catch (IOException e) {
+            System.err.println("[IIV] FAILED to save result: " + e.getMessage());
             e.printStackTrace();
         }
     }

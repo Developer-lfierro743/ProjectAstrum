@@ -18,26 +18,38 @@ import static org.lwjgl.glfw.GLFW.*;
  * Main Entry Point with Account System and IIV Verification
  * 
  * Flow:
- * 1. Account System (Login/Register)
- * 2. IIV Questionnaire (Identity Intent Verification)
- * 3. SafetyGuardian Initialization
+ * 1. Account System (Login/Register) OR Developer Mode bypass
+ * 2. IIV Questionnaire (Identity Intent Verification) OR Developer bypass
+ * 3. SafetyGuardian Initialization (11 rules)
  * 4. Launch Game
+ * 
+ * DEVELOPER MODE:
+ * Set AstrumConstants.DEVELOPER_MODE = true to enable:
+ * - Skip Account System (auto-login as DevPlayer)
+ * - Skip IIV Questionnaire (auto-pass)
+ * - Debug logging enabled
+ * 
+ * PRODUCTION MODE:
+ * Set AstrumConstants.DEVELOPER_MODE = false for:
+ * - Full Account System GUI required
+ * - IIV Questionnaire MUST be completed
+ * - Minimal logging
  */
 public class Main {
     
-    private static final String TITLE = "Astrum - Pre-Classic (Cave Game)";
-    private static final int TARGET_FPS = 60;
+    private static final String TITLE = AstrumConstants.GAME_TITLE;
+    private static final int TARGET_FPS = AstrumConstants.TARGET_FPS;
     private static final long FRAME_TIME = 1_000_000_000 / TARGET_FPS;
-    private static final String IIV_FILE = System.getProperty("user.home") + "/iiv_result.dat";
+    private static final String IIV_FILE = AstrumConstants.IIV_FILE;
 
     public static void main(String[] args) {
         // Print banner
-        System.out.println("=".repeat(50));
-        System.out.println("  ASTRUM - Pre-Classic (Cave Game)");
-        System.out.println("  Project Astrum v0.0.1");
-        System.out.println("  By Novusforge Studios");
-        System.out.println("=".repeat(50));
-        System.out.println();
+        AstrumConstants.printBanner();
+        
+        // Print developer warning if enabled
+        if (AstrumConstants.DEVELOPER_MODE) {
+            AstrumConstants.printDevWarning();
+        }
 
         // Step 1: Account System Check or Launch
         checkAccountSession();
@@ -53,7 +65,7 @@ public class Main {
             return;
         }
         System.out.println("  Player         : " + SessionManager.getUsername());
-        System.out.println("  SafetyGuardian : ONLINE");
+        System.out.println("  SafetyGuardian : ONLINE (" + AstrumConstants.SAFETY_RULE_COUNT + " rules active)");
         System.out.println("  IIV Framework  : READY");
         System.out.println("=".repeat(50));
         System.out.println();
@@ -155,7 +167,7 @@ public class Main {
     }
 
     /**
-     * Step 1: Account System - Login or Register
+     * Step 1: Account System - Login/Register or Developer Mode bypass
      */
     private static void checkAccountSession() {
         // Check if session already exists
@@ -164,95 +176,140 @@ public class Main {
             return;
         }
 
-        // Check DISPLAY for headless mode
-        String display = System.getenv("DISPLAY");
-        if (display == null || display.isEmpty()) {
-            System.out.println("Account: DISPLAY not set. Creating dev session...");
-            SessionManager.saveSession("DevPlayer", 0);
-            System.out.println("Account: Dev session created. Logged in as DevPlayer");
+        // DEVELOPER MODE: Auto-login
+        if (AstrumConstants.SKIP_ACCOUNT_SYSTEM) {
+            System.out.println("Account: DEVELOPER MODE - Skipping Account System GUI");
+            SessionManager.saveSession(AstrumConstants.DEV_USERNAME, AstrumConstants.DEV_AVATAR_ID);
+            System.out.println("Account: Auto-logged in as " + AstrumConstants.DEV_USERNAME);
             return;
         }
 
-        // Launch Account System GUI
+        // PRODUCTION MODE: Launch Account System GUI
         try {
-            System.out.println("Account: No session found. Launching Account System...");
+            System.out.println("Account: Launching Account System...");
             SwingUtilities.invokeAndWait(() -> {
                 new AccountSystem();
             });
 
             if (!SessionManager.isLoggedIn()) {
-                System.out.println("Account: Login cancelled. Creating dev session...");
-                SessionManager.saveSession("DevPlayer", 0);
-                System.out.println("Account: Dev session created. Logged in as DevPlayer");
-            } else {
-                System.out.println("Account: Login successful. Welcome " + SessionManager.getUsername());
+                System.err.println("Account: Login/Registration incomplete. Exiting.");
+                System.exit(1);
             }
+            System.out.println("Account: Login successful. Welcome " + SessionManager.getUsername());
         } catch (java.awt.AWTError e) {
-            System.out.println("Account: X11 connection failed. Creating dev session...");
-            SessionManager.saveSession("DevPlayer", 0);
-            System.out.println("Account: Dev session created. Logged in as DevPlayer");
+            System.err.println("Account: X11 connection failed. Using developer account...");
+            SessionManager.saveSession(AstrumConstants.DEV_USERNAME, AstrumConstants.DEV_AVATAR_ID);
+            System.out.println("Account: Logged in as " + AstrumConstants.DEV_USERNAME);
         } catch (Exception e) {
-            System.out.println("Account: Error. Creating dev session...");
-            SessionManager.saveSession("DevPlayer", 0);
-            System.out.println("Account: Dev session created. Logged in as DevPlayer");
+            System.err.println("Account: Error: " + e.getMessage());
+            System.exit(1);
         }
     }
 
     /**
-     * Step 2: IIV Questionnaire - Identity Intent Verification
+     * Step 2: IIV Questionnaire - Identity Intent Verification or Developer bypass
      */
     private static void checkIdentityVerification() {
         File file = new File(IIV_FILE);
-        
+
         // Check if already verified
         if (file.exists()) {
-            try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(file))) {
-                Object result = ois.readObject();
-                String decision = result.toString();
-
-                if (decision.contains("BLOCK")) {
+            try {
+                // Try reading as plain text first (dev bypass)
+                String content = new String(java.nio.file.Files.readAllBytes(file.toPath()));
+                if (content.contains("ALLOW")) {
+                    System.out.println("IIV: Verification found. Proceeding.");
+                    return;
+                } else if (content.contains("BLOCK")) {
                     System.err.println("CRITICAL: Entry denied by Identity Intent Verification.");
                     System.exit(0);
+                } else if (content.contains("WARN")) {
+                    System.out.println("IIV: Previous verification found (warned). Proceeding.");
+                    return;
                 }
-                System.out.println("IIV: Previous verification found. Proceeding.");
-                return;
+                
+                // Try deserializing as IIVResult object
+                try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(file))) {
+                    Object result = ois.readObject();
+                    String decision = result.toString();
+
+                    if (decision.contains("BLOCK")) {
+                        System.err.println("CRITICAL: Entry denied by Identity Intent Verification.");
+                        System.exit(0);
+                    }
+                    System.out.println("IIV: Previous verification found. Proceeding.");
+                    return;
+                }
             } catch (Exception e) {
-                // If corrupted, re-run
+                System.out.println("IIV: Previous verification corrupted. Re-running...");
+                file.delete();
             }
         }
 
-        // Check DISPLAY for headless mode
-        String display = System.getenv("DISPLAY");
-        if (display == null || display.isEmpty()) {
-            System.out.println("IIV: DISPLAY not set. Skipping for development...");
+        // DEVELOPER MODE: Auto-pass IIV
+        if (AstrumConstants.SKIP_IIV_QUESTIONNAIRE) {
+            System.out.println("IIV: DEVELOPER MODE - Skipping Questionnaire");
+            System.out.println("IIV: Auto-passed with decision: " + AstrumConstants.DEV_IIV_DECISION);
+            // Create bypass file
+            try {
+                java.nio.file.Files.write(file.toPath(), AstrumConstants.DEV_IIV_DECISION.getBytes());
+            } catch (Exception e) {
+                System.err.println("IIV: Warning - Could not create bypass file");
+            }
             return;
         }
 
-        // Launch IIV Questionnaire GUI
+        // PRODUCTION MODE: Launch IIV Questionnaire GUI - MUST complete
         try {
             System.out.println("IIV: Launching Identity Intent Verification...");
+            System.out.println("IIV: Please complete all 12 questions.");
+            System.out.println("IIV: You MUST complete the questionnaire to proceed.");
+            
+            // Create and show questionnaire
             SwingUtilities.invokeAndWait(() -> {
-                new IIVQuestionnaire();
+                IIVQuestionnaire questionnaire = new IIVQuestionnaire();
+                questionnaire.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
             });
 
-            // Verify result saved
+            // Wait a moment for file to be saved
+            Thread.sleep(500);
+
+            // Verify result was saved - MUST exist
             if (!file.exists()) {
-                System.out.println("IIV: Verification incomplete. Skipping...");
-                return;
+                System.err.println("IIV: ERROR - Verification file not created!");
+                System.err.println("IIV: The questionnaire was not completed.");
+                System.err.println("IIV: You MUST complete all 12 questions to proceed.");
+                System.exit(1);
             }
 
+            // Read and verify result
             try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(file))) {
                 Object result = ois.readObject();
-                if (result.toString().contains("BLOCK")) {
+                String decision = result.toString();
+                
+                if (decision.contains("BLOCK")) {
                     System.err.println("CRITICAL: Entry denied by Identity Intent Verification.");
+                    System.err.println("IIV: Your responses indicate behavior patterns incompatible with Astrum community standards.");
                     System.exit(0);
+                } else if (decision.contains("WARN")) {
+                    System.out.println("IIV: Verification completed with warnings. You will be monitored.");
+                } else {
+                    System.out.println("IIV: Verification PASSED. Welcome to Astrum!");
                 }
-                System.out.println("IIV: Verification passed. Proceeding to engine initialization.");
             }
+            
         } catch (java.awt.AWTError e) {
-            System.out.println("IIV: X11 connection failed. Skipping for development...");
+            System.err.println("IIV: X11 connection failed. Cannot run verification.");
+            System.err.println("IIV: Using developer bypass...");
+            SessionManager.saveSession(AstrumConstants.DEV_USERNAME, AstrumConstants.DEV_AVATAR_ID);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            System.err.println("IIV: Interrupted. Exiting.");
+            System.exit(1);
         } catch (Exception e) {
-            System.out.println("IIV: Error. Skipping for development...");
+            System.err.println("IIV: Error: " + e.getMessage());
+            e.printStackTrace();
+            System.exit(1);
         }
     }
 }
