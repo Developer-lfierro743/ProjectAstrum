@@ -41,11 +41,12 @@ dependencies {
     implementation 'org.slf4j:slf4j-simple:2.0.12'
     implementation libs.joml
     implementation libs.bundles.lwjgl
+    implementation libs.bundles.lwjgl.opengl  // OpenGL bindings
     implementation(libs.vkbootstrap) {
         exclude group: 'org.lwjgl'
     }
 
-    // Natives for Linux
+    // Natives for Linux ARM64
     runtimeOnly variantOf(libs.lwjgl) { classifier("natives-linux-arm64") }
     runtimeOnly variantOf(libs.lwjgl.glfw) { classifier("natives-linux-arm64") }
     runtimeOnly variantOf(libs.lwjgl.stb) { classifier("natives-linux-arm64") }
@@ -53,6 +54,9 @@ dependencies {
     runtimeOnly variantOf(libs.lwjgl.vma) { classifier("natives-linux-arm64") }
     runtimeOnly variantOf(libs.lwjgl.assimp) { classifier("natives-linux-arm64") }
     runtimeOnly variantOf(libs.lwjgl.openal) { classifier("natives-linux-arm64") }
+    
+    // OpenGL natives
+    runtimeOnly variantOf(libs.lwjgl.opengl) { classifier("natives-linux-arm64") }
 
     testImplementation libs.junit.api
     testRuntimeOnly libs.junit.engine

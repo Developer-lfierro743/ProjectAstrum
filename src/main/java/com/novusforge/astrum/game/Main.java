@@ -1,49 +1,68 @@
 package com.novusforge.astrum.game;
 
-import com.novusforge.astrum.engine.VulkanRenderer;
-import com.novusforge.astrum.world.World;
+import com.novusforge.astrum.engine.*;
+import com.novusforge.astrum.world.*;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 import static org.lwjgl.glfw.GLFW.*;
 
 /**
- * Project Astrum - Main Entry Point
- * A Vulkan-based voxel sandbox game by Novusforge Studios
+ * Project Astrum - Pre-Classic (Cave Game)
+ * Following Notch's original development approach
+ * 
+ * Stage: Pre-Classic
+ * Features:
+ * - Basic voxel rendering
+ * - Infinite terrain generation
+ * - First-person camera
+ * - Block placement/destruction
+ * 
+ * Tech Stack:
+ * - Java 21
+ * - Vulkan (LWJGL 3)
+ * - 32×32×32 chunks
+ * - FastNoiseLite for terrain
  */
 public class Main {
     
-    private static final String TITLE = "Astrum - Pre-classic (Cave Game)";
+    private static final String TITLE = "Astrum - Pre-Classic (Cave Game)";
     private static final int TARGET_FPS = 60;
     private static final long FRAME_TIME = 1_000_000_000 / TARGET_FPS;
 
     public static void main(String[] args) {
-        // Print Astrum Banner
+        // Print banner
         System.out.println("=".repeat(50));
-        System.out.println("  ASTRUM - Pre-classic (Cave Game)");
+        System.out.println("  ASTRUM - Pre-Classic (Cave Game)");
         System.out.println("  Project Astrum v0.0.1");
         System.out.println("  By Novusforge Studios");
         System.out.println("=".repeat(50));
         System.out.println();
 
-        // Initialize Vulkan Renderer
-        VulkanRenderer renderer = new VulkanRenderer();
+        // Create renderer
+        IRenderer renderer = new VulkanRenderer();
         Game game = null;
         
         try {
-            renderer.init();
+            // Initialize renderer
+            if (!renderer.init()) {
+                System.err.println("[ERROR] Renderer initialization failed!");
+                System.exit(1);
+            }
+            
+            // Create game
             game = new Game(renderer.getWindow(), renderer);
             game.init();
             
-            // Set up buffer deletion callback
+            // Set buffer deleter callback
             World.setBufferDeleter(renderer::deleteBuffer);
             
             System.out.println();
-            System.out.println("[Render] Vulkan renderer initialized!");
-            System.out.println("[Game] Astrum Pre-classic loaded!");
-            System.out.println("[Controls] WASD to move, Space to jump");
-            System.out.println("[Controls] Mouse to look, Click to lock");
-            System.out.println("[Controls] Left click: Break block, Right click: Place block");
+            System.out.println("[Render] " + renderer.getRendererName() + " initialized!");
+            System.out.println("[Game] Astrum Pre-Classic loaded!");
+            System.out.println("[Controls] WASD = Move, Space = Jump");
+            System.out.println("[Controls] Mouse = Look, Click = Lock");
+            System.out.println("[Controls] L-Click = Break, R-Click = Place");
             System.out.println();
 
             // Game Loop
@@ -61,10 +80,10 @@ public class Main {
                 float deltaTime = (currentTime - lastTime) / 1_000_000_000f;
                 lastTime = currentTime;
                 
-                // Cap delta time to avoid physics explosions
+                // Cap delta time
                 deltaTime = Math.min(deltaTime, 0.1f);
                 
-                // Update game logic
+                // Update
                 game.update(deltaTime);
                 
                 // Update matrices
@@ -79,8 +98,8 @@ public class Main {
                 Vector3f pos = game.getPlayer().getPosition();
                 viewMatrix.translate(-pos.x, -pos.y, -pos.z);
                 
-                // Get visible chunk meshes
-                java.util.Map<Long, com.novusforge.astrum.world.ChunkMesh> visibleMeshes =
+                // Get visible meshes (with frustum culling)
+                java.util.Map<Long, ChunkMesh> visibleMeshes =
                     game.getWorld().getVisibleMeshes(pos.x, pos.y, pos.z, null);
                 
                 // Render
@@ -110,11 +129,9 @@ public class Main {
             System.out.println("[Shutdown] Closing Astrum...");
             
         } finally {
-            if (game != null) {
-                game.cleanup();
-            }
-            renderer.cleanup();
-            System.out.println("[Shutdown] Astrum closed successfully!");
+            if (game != null) game.cleanup();
+            if (renderer != null) renderer.cleanup();
+            System.out.println("[Shutdown] Done!");
         }
     }
 }
